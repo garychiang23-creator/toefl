@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b3d5c">
+<link rel="manifest" href="manifest.json">
+<title>TOEFL 2026 訓練系統</title>
+<style>
+  :root{--bg:#0b1220;--card:#131c2e;--card2:#0f1726;--line:#243149;--txt:#e6edf6;--mut:#8aa0bd;--acc:#3da9fc;--good:#37d399;--warn:#f6c453;--bad:#f87272}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang TC","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--txt);-webkit-text-size-adjust:100%}
+  header{padding:14px 16px;background:linear-gradient(135deg,#0b3d5c,#0b1220);position:sticky;top:0;z-index:10;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:17px;letter-spacing:.5px}
+  header .sub{color:var(--mut);font-size:12px;margin-top:2px}
+  main{padding:14px;max-width:820px;margin:0 auto;padding-bottom:92px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+  .card h2{margin:0 0 10px;font-size:15px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .scoregrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+  .scoregrid .s{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 4px}
+  .scoregrid .s b{display:block;font-size:22px;margin-top:2px}
+  .scoregrid .s small{color:var(--mut);font-size:11px}
+  .big{font-size:30px;font-weight:700}
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+  .pill.ok{color:var(--good);border-color:#1c5e46}.pill.gap{color:var(--warn);border-color:#5e4d1c}
+  .pill.c2{color:#d6a2ff;border-color:#5a3a7a}.pill.c1{color:var(--acc);border-color:#1c3a52}
+  button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--txt);padding:9px 13px}
+  button.acc{background:var(--acc);border-color:var(--acc);color:#06223a;font-weight:600}
+  button.ghost{background:transparent}button:active{transform:translateY(1px)}
+  button:disabled{opacity:.5}
+  .opt{display:block;width:100%;text-align:left;margin:6px 0;padding:11px 13px}
+  .opt.sel{border-color:var(--acc);background:#11283d}
+  .opt.right{border-color:var(--good);background:#10301f}.opt.wrong{border-color:var(--bad);background:#311414}
+  label.chk{display:flex;gap:9px;align-items:flex-start;margin:7px 0;font-size:14px;cursor:pointer}
+  textarea,input[type=text]{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:10px;font:inherit}
+  select{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px}
+  .mut{color:var(--mut)}.small{font-size:12px}.bad{color:var(--bad)}.good{color:var(--good)}
+  .passage{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px;line-height:1.65;font-size:14px;max-height:44vh;overflow:auto}
+  .tag{font-size:11px;color:var(--acc);border:1px solid #1c3a52;border-radius:6px;padding:1px 6px}
+  nav{position:fixed;bottom:0;left:0;right:0;background:#0c1424;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px 2px env(safe-area-inset-bottom)}
+  nav button{border:none;background:none;color:var(--mut);font-size:11px;padding:6px 4px;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:50px}
+  nav button.active{color:var(--acc)}nav .ico{font-size:18px;line-height:1}
+  .bar{height:8px;background:var(--card2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--good))}
+  .timer{font-variant-numeric:tabular-nums;font-weight:700}
+  .flex-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  ul.task{list-style:none;padding:0;margin:0}
+  ul.task li{display:flex;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+  ul.task li:last-child{border:none}
+  .dot{width:9px;height:9px;border-radius:99px;background:var(--mut);flex:none}
+  .done .dot{background:var(--good)}.done span{color:var(--mut);text-decoration:line-through}
+  audio{width:100%;margin-top:8px}
+  a{color:var(--acc)}
+  .reslink{display:block;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:11px;margin:7px 0;text-decoration:none;color:var(--txt)}
+  .reslink b{color:var(--acc)}
+</style>
+</head>
+<body>
+<header>
+  <h1>TOEFL 2026 訓練系統</h1>
+  <div class="sub" id="hdrSub">目標 5.5–6.0 · 新制 1–6 分制</div>
+</header>
+<main id="view"><div class="card">載入中…</div></main>
+
+<nav>
+  <button data-tab="dash" class="active"><span class="ico">📊</span>總覽</button>
+  <button data-tab="read"><span class="ico">📖</span>閱讀</button>
+  <button data-tab="listen"><span class="ico">🎧</span>聽力</button>
+  <button data-tab="vocab"><span class="ico">🗂️</span>詞彙</button>
+  <button data-tab="speak"><span class="ico">🎙️</span>口說</button>
+  <button data-tab="write"><span class="ico">✍️</span>寫作</button>
+</nav>
+
+<script>window.__EMBED__={"reading":[{"id":"C-words-001","section":"reading","taskType":"complete-words","format":"2026","topic":"Complete the Words — The Origins of Writing","targetCEFR":"B2","author":"self-authored, original; 'Complete the Words' task type","instruction":"Fill in the missing letters to complete each word.","parts":["We ",{"p":"kn","a":"ow"}," from cave paintings that ",{"p":"anc","a":"ient"}," peoples ",{"p":"rec","a":"orded"}," the animals they hunted. Long ",{"p":"bef","a":"ore"}," the ",{"p":"alph","a":"abet"},", these ",{"p":"im","a":"ages"}," allowed ",{"p":"knowl","a":"edge"}," to be shared across ",{"p":"gener","a":"ations"},". Writing itself developed ",{"p":"grad","a":"ually"},", beginning with simple marks pressed into ",{"p":"cl","a":"ay"},"."]},{"id":"D-email-001","section":"reading","taskType":"daily-life","format":"2026","topic":"Daily Life — Gym Email (Pool Closure)","targetCEFR":"B2","author":"self-authored, original; 'Read in Daily Life' task type","passage":"To: all-members@harbourgym.com\nFrom: reception@harbourgym.com\nSubject: Temporary Pool Closure\n\nHi everyone,\n\nPlease note that our swimming pool will be closed from Monday, July 6 to Friday, July 10 for its annual deep-clean and tile repair. All other facilities — the gym floor, studios, and sauna — will stay open as usual.\n\nIf you booked a swimming class during that week, it has been automatically moved to the following week, and you will get a reminder by text. Members who only use the pool can freeze their membership for those days at no charge; just reply to this email before July 4.\n\nThanks for your patience,\nHarbour Gym Team","questions":[{"id":"q1","type":"gist-purpose","construct":"信件目的","cefr":"B1-B2","stem":"Why was this email sent?","options":["To advertise a new pool","To tell members the pool will be closed for cleaning and repair","To raise membership prices","To cancel all gym classes"],"answer":1,"rationale":"主旨與內文：泳池將因年度深層清潔與磁磚維修而關閉。","distractorRationale":["A 非宣傳新池","C 未提漲價","D 只關泳池，其他照常"]},{"id":"q2","type":"detail","construct":"細節","cefr":"B2","stem":"Which facilities will stay open during that week?","options":["Only the pool","The gym floor, studios, and sauna","Nothing — the whole gym closes","Only the sauna"],"answer":1,"rationale":"『All other facilities — the gym floor, studios, and sauna — will stay open』。","distractorRationale":["A 泳池正是要關的","C 與『其他照常』相反","D 不只三溫暖"]},{"id":"q3","type":"detail","construct":"細節","cefr":"B2","stem":"What will happen to a swimming class booked during that week?","options":["It will be cancelled","It will be moved to the following week","It will be held outdoors","It will cost extra"],"answer":1,"rationale":"『automatically moved to the following week』。","distractorRationale":["A 非取消","C 無戶外之說","D 無額外費用"]},{"id":"q4","type":"inference","construct":"推論行動","cefr":"B2","stem":"What can a member who only uses the pool do, and by when?","options":["Freeze their membership for free by replying before July 4","Get a full refund after July 10","Use another gym for free","Nothing can be done"],"answer":0,"rationale":"只用泳池者可免費凍結會籍，需在 7/4 前回信。","distractorRationale":["B 無退費之說","C 無他館之說","D 與『可凍結』相反"]},{"id":"q5","type":"vocabulary","construct":"情境詞義","cefr":"B2","stem":"In the email, \"freeze their membership\" most nearly means","options":["cancel it permanently","pause it temporarily","upgrade it","share it with a friend"],"answer":1,"rationale":"freeze membership＝暫停會籍（那幾天）。","distractorRationale":["A 是暫停非永久取消","C 與升級無關","D 與分享無關"]}]},{"id":"R-commons-003","section":"reading","format":"2026-adaptive","topic":"Social Science / Economics — The Tragedy of the Commons","targetCEFR":"C2","author":"self-authored, original; format calibrated to official 2026 spec; ceiling-difficulty item","passage":"In an influential 1968 essay, the ecologist Garrett Hardin described a dilemma he called the tragedy of the commons. Imagine a pasture open to all herders. Each individual, acting rationally in pursuit of personal gain, has an incentive to graze as many animals as possible, since the benefit of an additional animal accrues to that herder alone, whereas the cost of overgrazing is distributed across the entire community. Multiplied across many users, this logic drives the shared resource toward exhaustion, even though no single participant actually desires that outcome.\n\nHardin's parable was long invoked to justify either strict government regulation or outright privatization as the only remedies for collective overuse. Subsequent research, however, complicated this conclusion. The political scientist Elinor Ostrom demonstrated that communities around the world have, for centuries, devised their own institutions to govern shared resources sustainably, without recourse to either the state or the market. Through binding local rules, mutual monitoring, and graduated sanctions, such arrangements can align individual incentives with the collective interest.\n\nThe commons, on this account, is not inevitably doomed. Its fate depends far less on the abstract structure of the dilemma than on whether those who depend on the resource can construct credible mechanisms to constrain one another.","insertSentence":"Self-interest, in other words, can quietly destroy a resource that everyone needs.","questions":[{"id":"q1","type":"factual-information","construct":"定位明示事實","cefr":"C1-C2","stem":"According to Hardin, why does each herder have an incentive to add more animals?","options":["The community rewards herders with the largest herds.","The full benefit goes to the herder, while the cost of overgrazing is shared by all.","Animals reproduce faster on a crowded pasture.","Government rules require maximum use of the land."],"answer":1,"rationale":"段1：增加一隻的利益歸個人，過度放牧的成本由全體分攤。","distractorRationale":["A 文中無『獎勵最大群』之說","C 與繁殖速度無關，捏造","D 與『rationally自利』機制無關"]},{"id":"q2","type":"vocabulary","construct":"情境詞義","cefr":"C2","stem":"In paragraph 1, \"exhaustion\" is closest in meaning to","options":["physical tiredness","complete depletion","rapid expansion","careful protection"],"answer":1,"rationale":"此處 exhaustion 指資源被耗盡（depletion），非『疲累』。","distractorRationale":["A 字面陷阱（人累）","C 與『耗盡』相反","D 與情境相反"]},{"id":"q3","type":"inference","construct":"推論未明說內容","cefr":"C2","stem":"What can be inferred from Ostrom's findings as described in the passage?","options":["Only governments can manage shared resources successfully.","Communities can sometimes prevent overuse without relying on the state or markets.","Privatization always destroys common resources.","Hardin's dilemma never occurs in the real world."],"answer":1,"rationale":"Ostrom 顯示社群可用自訂制度永續治理，無需國家或市場→自我治理有時可行。","distractorRationale":["A 與 Ostrom 結論相反","C 過度絕對化","D 曲解，Hardin 機制仍真實存在"]},{"id":"q4","type":"sentence-simplification","construct":"保留核心意義改寫","cefr":"C2","highlight":"Each individual ... has an incentive to graze as many animals as possible, since the benefit of an additional animal accrues to that herder alone, whereas the cost of overgrazing is distributed across the entire community.","stem":"Which best expresses the essential information in the highlighted sentence? Incorrect choices change the meaning or leave out essential information.","options":["Herders add animals because they keep all the gain but share the cost with everyone.","Herders add animals only when the community orders them to.","Herders avoid adding animals because overgrazing is too costly for them.","Herders share both the benefits and the costs of each extra animal equally."],"answer":0,"rationale":"核心＝利益獨享、成本共擔，故有過度放牧誘因。","distractorRationale":["B 竄改成被命令","C 與『有誘因增加』相反","D 把『成本共擔利益獨享』錯成兩者皆均分"]},{"id":"q5","type":"insert-text","construct":"句子邏輯銜接","cefr":"C2","stem":"Look at the squares [A], [B], [C], [D]. Where does this sentence best fit: \"Self-interest, in other words, can quietly destroy a resource that everyone needs.\"","positions":{"A":"在『...the tragedy of the commons.』之後（尚未說明機制）","B":"在『...even though no single participant actually desires that outcome.』之後（剛描述完自利導致耗竭）","C":"在『...complicated this conclusion.』之後","D":"在『...constrain one another.』之後（全文結尾）"},"answer":"B","rationale":"此句是對『自利→耗竭』的總結重述（in other words），最適放在該機制剛說明完之後。","distractorRationale":["A 機制尚未鋪陳，無可『in other words』","C 該處正轉向 Ostrom 的反例，插入打斷","D 結尾已轉為解方，語意不接"]},{"id":"q6","type":"prose-summary","construct":"辨主旨、排除細節曲解","cefr":"C2","multiSelect":true,"intro":"The 'tragedy of the commons' describes how shared resources can be overused — but that outcome may not be inevitable.","stem":"Choose the TWO statements that express the most important ideas in the passage.","options":["When individuals keep the gains but share the costs, self-interest can drive a shared resource to ruin.","Ostrom showed that communities can devise their own institutions to govern commons sustainably, so collapse is not inevitable.","Hardin published his essay in 1968.","Pastures are the most common type of shared resource in the world.","Government regulation is always more effective than privatization."],"answer":[0,1],"rationale":"A=Hardin 機制（段1）；B=Ostrom 反例與結論（段2-3）。兩者構成全文論證主軸。","distractorRationale":["C 年份屬細節非主旨","D 文中未宣稱、捏造","E 文中未比較兩者優劣，曲解"]}]},{"id":"R-geyser-004","section":"reading","format":"2026-adaptive","topic":"Earth Science — How Geysers Erupt","targetCEFR":"C1","author":"self-authored, original; format calibrated to official 2026 spec","passage":"A geyser is a rare type of hot spring that erupts intermittently, ejecting a column of water and steam into the air. For one to develop, three conditions must coincide: a steady supply of groundwater, an intense subterranean heat source, and an unusual structure of narrow, twisting channels in the surrounding rock. Where these occur together — most famously in Iceland, New Zealand, and Yellowstone — eruptions can repeat for thousands of years.\n\nThe mechanism depends on pressure. Water percolates deep underground and accumulates near hot volcanic rock. Because the overlying column of water exerts enormous pressure on it, the deepest water can be heated far beyond its normal boiling point without turning to steam. Eventually a portion of it does boil, and the rising bubbles displace some water at the surface. This release reduces the pressure below, which instantly lowers the boiling point, so a large volume of superheated water flashes into steam at once. The expanding steam drives the dramatic eruption.\n\nAfter the chamber empties, groundwater gradually replenishes it and the heating process resumes. The remarkable regularity of certain geysers reflects how consistently this cycle of accumulation, heating, and sudden release recurs.","insertSentence":"This is why geysers, unlike ordinary hot springs, erupt rather than simply flow.","questions":[{"id":"q1","type":"factual-information","construct":"定位明示事實","cefr":"B2-C1","stem":"According to the passage, which three conditions must occur together for a geyser to form?","options":["Groundwater, underground heat, and narrow twisting channels","Volcanic ash, rainfall, and flat rock layers","Steam, seawater, and deep ocean trenches","Cold water, sunlight, and loose soil"],"answer":0,"rationale":"段1明列三條件：groundwater、intense underground heat、narrow twisting channels。","distractorRationale":["B 三者皆非文中條件","C 海水/海溝無關","D 與高熱機制矛盾"]},{"id":"q2","type":"vocabulary","construct":"情境詞義","cefr":"C1","stem":"In paragraph 1, \"coincide\" is closest in meaning to","options":["occur together","disappear quickly","compete","cool down"],"answer":0,"rationale":"coincide＝同時發生/共存。","distractorRationale":["B 與『同時存在』無關","C 偷換成競爭","D 與條件並存無關"]},{"id":"q3","type":"inference","construct":"推論機制","cefr":"C1","stem":"Why can the deepest water be heated beyond its normal boiling point without boiling?","options":["Because volcanic rock cools it from below","Because the weight of the water above raises the pressure on it","Because steam insulates it from the heat","Because the channels are too narrow for bubbles"],"answer":1,"rationale":"段2：上方水柱壓下→高壓提高沸點，故可超過常壓沸點而不沸騰。","distractorRationale":["A 火山岩是加熱源非冷卻","C 蒸氣此時尚未形成","D 與沸點機制無關"]},{"id":"q4","type":"sentence-simplification","construct":"保留核心意義改寫","cefr":"C1","highlight":"This release reduces the pressure below, which instantly lowers the boiling point, so a large volume of superheated water flashes into steam at once.","stem":"Which best expresses the essential information in the highlighted sentence? Incorrect choices change the meaning or leave out essential information.","options":["Releasing some water drops the pressure, lowers the boiling point, and makes much hot water turn to steam suddenly.","Adding water raises the pressure and prevents steam from forming.","The boiling point rises slowly as steam escapes over many hours.","Only a small amount of water ever becomes steam."],"answer":0,"rationale":"核心＝釋壓→沸點驟降→大量過熱水瞬間汽化。","distractorRationale":["B 方向相反（是減壓非加壓）","C 與『instantly/at once』相反","D 與『large volume』相反"]},{"id":"q5","type":"insert-text","construct":"句子邏輯銜接","cefr":"C1","stem":"Look at the squares [A], [B], [C], [D]. Where does this sentence best fit: \"This is why geysers, unlike ordinary hot springs, erupt rather than simply flow.\"","positions":{"A":"在段1『...repeat for thousands of years.』之後","B":"在段2『...The expanding steam drives the dramatic eruption.』之後（剛解釋完爆發機制）","C":"在段2開頭『The mechanism depends on pressure.』之後","D":"在段3結尾"},"answer":"B","rationale":"此句總結『為何會爆發而非流出』，需緊接在爆發機制說明完之後（段2末）。","distractorRationale":["A 機制尚未說明，無法對比『噴發 vs 流出』","C 機制才剛起頭","D 已進入循環收尾，語意斷裂"]},{"id":"q6","type":"prose-summary","construct":"辨主旨、排除細節曲解","cefr":"C1","multiSelect":true,"intro":"A geyser is a hot spring that erupts in a repeating cycle.","stem":"Choose the TWO statements that express the most important ideas in the passage.","options":["A geyser needs groundwater, strong underground heat, and a special system of narrow channels.","Pressure lets deep water superheat; a small release then triggers a sudden flash to steam that drives the eruption.","Geysers are found in Iceland, New Zealand, and Yellowstone.","Hot springs are more common than geysers worldwide.","Steam is lighter than liquid water."],"answer":[0,1],"rationale":"A=形成條件（段1）；B=爆發機制（段2）。兩者為全文骨幹。","distractorRationale":["C 地點屬細節非主旨","D 文中未比較數量","E 雖屬常識但非本文重點"]}]},{"id":"R-neptune-002","section":"reading","format":"2026-adaptive","topic":"Astronomy / History of Science — The Discovery of Neptune","targetCEFR":"C1","author":"self-authored, original; format calibrated to official 2026 spec","passage":"For most of the eighteenth century, astronomers were satisfied that the planet Uranus moved exactly as Newton's laws predicted. By the 1840s, however, careful observation revealed an anomaly in the data: Uranus consistently drifted from its calculated path, as though some unseen force were tugging at it. Rather than abandon Newton's theory, two mathematicians independently proposed a bold explanation. They suggested that an additional, undiscovered planet lay beyond Uranus, and that its gravity was responsible for the discrepancy.\n\nWorking separately, Urbain Le Verrier in France and John Couch Adams in England computed where such a planet would have to be. In 1846 Le Verrier sent his prediction to an observatory in Berlin. On the very night they received it, astronomers there pointed their telescope at the indicated position and found the new planet, later named Neptune, within a single degree of the predicted spot.\n\nThe discovery was widely celebrated as a triumph of theory over mere observation. A planet had been found not by chance, but by calculation. To many scientists of the period, it confirmed that the universe was governed by laws precise enough to reveal what no eye had yet seen.","insertSentence":"Each arrived at almost the same answer.","questions":[{"id":"q1","type":"factual-information","construct":"定位明示事實","cefr":"B2-C1","stem":"According to the passage, what problem did astronomers notice about Uranus by the 1840s?","options":["It had begun to slow down and stop.","It strayed from the path Newton's laws predicted.","It grew steadily brighter each year.","It moved closer to the Sun than expected."],"answer":1,"rationale":"段1：『Uranus consistently drifted from its calculated path』。","distractorRationale":["A 文中無『停下』之說","C 亮度未提及","D 偏離路徑≠靠近太陽，無依據"]},{"id":"q2","type":"vocabulary","construct":"情境詞義","cefr":"C1","stem":"In paragraph 1, \"discrepancy\" is closest in meaning to","options":["a sudden collision","a difference from what was expected","a loss of brightness","a long delay"],"answer":1,"rationale":"discrepancy＝預測與觀測之間的差異。","distractorRationale":["A 偷換成碰撞","C 與亮度無關","D 偷換成時間延遲"]},{"id":"q3","type":"inference","construct":"推論未明說內容","cefr":"C1","stem":"What can be inferred about the effect of the discovery on Newton's theory?","options":["It cast serious doubt on the theory.","It strengthened confidence in the theory's predictive power.","It showed the theory applied only to Uranus.","It proved the theory needed no observation at all."],"answer":1,"rationale":"用牛頓理論預測竟能找到新行星→『triumph of theory』，強化對其預測力的信心。","distractorRationale":["A 與『triumph』相反","C 過度限縮，文意是普遍定律","D 極端化，發現仍靠望遠鏡觀測證實"]},{"id":"q4","type":"sentence-simplification","construct":"保留核心意義改寫","cefr":"C1","highlight":"Rather than abandon Newton's theory, two mathematicians independently proposed a bold explanation.","stem":"Which best expresses the essential information in the highlighted sentence? Incorrect choices change the meaning or leave out essential information.","options":["Two mathematicians rejected Newton's theory and offered a new one.","Instead of giving up Newton's theory, two mathematicians each suggested a daring idea.","Two mathematicians agreed that Newton's theory could not be saved.","Newton himself proposed a bold new explanation."],"answer":1,"rationale":"保留『不放棄牛頓理論＋各自提出大膽解釋』。","distractorRationale":["A 與『rather than abandon』相反","C 同樣竄改成放棄理論","D 張冠李戴成牛頓本人"]},{"id":"q5","type":"insert-text","construct":"句子邏輯銜接","cefr":"C1","stem":"Look at the squares [A], [B], [C], [D]. Where does this sentence best fit: \"Each arrived at almost the same answer.\"","positions":{"A":"在『...moved exactly as Newton's laws predicted.』之後","B":"在『...two mathematicians independently proposed a bold explanation.』之後","C":"在『...computed where such a planet would have to be.』之後（剛說兩人各自算出位置）","D":"在『...within a single degree of the predicted spot.』之後"},"answer":"C","rationale":"『Each arrived at almost the same answer』需緊接在『兩人各自計算位置』之後，呼應 independently＋彼此結果一致，自然引出後文寄出預測。","distractorRationale":["A 此處尚無『兩人各自計算』可指","B 只說提出解釋、還沒算出答案","D 已是發現之後，時序錯置"]},{"id":"q6","type":"prose-summary","construct":"辨主旨、排除細節曲解","cefr":"C1","multiSelect":true,"intro":"In the 1840s, the unexpected motion of Uranus led to a remarkable astronomical discovery.","stem":"Choose the TWO statements that express the most important ideas in the passage.","options":["Uranus's deviation led mathematicians to use Newton's laws to predict an unknown planet.","Neptune was found very close to the predicted position and hailed as a victory for theory.","Le Verrier worked in France while Adams worked in England.","The Berlin observatory had the largest telescope in Europe.","Newton personally discovered the planet Neptune."],"answer":[0,1],"rationale":"A=問題與預測（段1+2上）；B=發現與意義（段2下+段3）。涵蓋全文骨幹。","distractorRationale":["C 屬支微細節非主旨","D 文中未提、捏造","E 事實錯誤"]}]},{"id":"R-perspective-005","section":"reading","format":"2026-adaptive","topic":"Art History — Linear Perspective in the Renaissance","targetCEFR":"C1","author":"self-authored, original; format calibrated to official 2026 spec","passage":"Before the fifteenth century, European painters rarely created a convincing sense of depth. Figures were often arranged by importance rather than by distance, and the space behind them looked flat. This changed when artists in Renaissance Italy developed linear perspective, a method for representing three-dimensional space on a flat surface.\n\nThe central insight was that parallel lines receding from the viewer appear to converge at a single point on the horizon, known as the vanishing point. By drawing the edges of floors, walls, and buildings so that they met at this point, a painter could make a scene recede convincingly into the distance. Objects were also reduced in size according to fixed mathematical ratios as they moved farther away, reinforcing the illusion.\n\nThe architect Filippo Brunelleschi is usually credited with demonstrating the technique, and the painter Masaccio applied it boldly in his frescoes. Within a few decades the method had spread across Europe. Perspective did more than improve realism; it reflected a broader confidence that the visible world could be measured and described through geometry. In this sense, a painting became not only an image but also a kind of calculation.","insertSentence":"The result could be almost as convincing as looking through a window.","questions":[{"id":"q1","type":"factual-information","construct":"定位明示事實","cefr":"B2-C1","stem":"According to the passage, how were figures often arranged before the fifteenth century?","options":["According to their distance from the viewer","According to their importance rather than distance","Along the vanishing point","By strict mathematical ratios"],"answer":1,"rationale":"段1：『arranged by importance rather than by distance』。","distractorRationale":["A 正是後來才有的做法","C 消失點是後文概念","D 數學比例屬透視法之後"]},{"id":"q2","type":"vocabulary","construct":"情境詞義","cefr":"C1","stem":"In paragraph 2, \"converge\" is closest in meaning to","options":["come together at one point","spread far apart","disappear from view","change color"],"answer":0,"rationale":"平行線在地平線『會聚於一點』＝消失點。","distractorRationale":["B 與『會聚』相反","C 偷換成消失","D 與幾何無關"]},{"id":"q3","type":"inference","construct":"推論用意","cefr":"C1","stem":"Why were distant objects drawn smaller, according to the passage?","options":["To save space on the canvas","To strengthen the illusion of depth","To hide the vanishing point","Because distant objects are less important"],"answer":1,"rationale":"段2：依數學比例縮小遠物以『reinforcing the illusion』。","distractorRationale":["A 與省空間無關","C 與隱藏消失點無關","D 重要性是舊式排列，非透視原因"]},{"id":"q4","type":"sentence-simplification","construct":"保留核心意義改寫","cefr":"C1","highlight":"The central insight was that parallel lines receding from the viewer appear to converge at a single point on the horizon, known as the vanishing point.","stem":"Which best expresses the essential information in the highlighted sentence? Incorrect choices change the meaning or leave out essential information.","options":["The key idea was that parallel lines going away from the viewer seem to meet at one point on the horizon.","Parallel lines never appear to meet, even in the distance.","The horizon is always drawn at the center of a painting.","Painters discovered that lines change direction near the viewer."],"answer":0,"rationale":"核心＝遠去的平行線看似會聚於地平線上一點。","distractorRationale":["B 與『appear to converge』相反","C 與消失點意義無關、捏造規則","D 曲解成『改變方向』"]},{"id":"q5","type":"insert-text","construct":"句子邏輯銜接","cefr":"C1","stem":"Look at the squares [A], [B], [C], [D]. Where does this sentence best fit: \"The result could be almost as convincing as looking through a window.\"","positions":{"A":"在段1『...looked flat.』之後","B":"在段2『...reinforcing the illusion.』之後（剛說明完如何造出逼真深度）","C":"在段3『...spread across Europe.』之後","D":"在段3結尾"},"answer":"B","rationale":"此句評述『造出的逼真效果』，需緊接在說明完透視如何製造深度幻覺之後（段2末）。","distractorRationale":["A 此處在講舊式平面、尚無『逼真結果』可評","C 已轉談傳播史","D 已是抽象結論，語意不接"]},{"id":"q6","type":"prose-summary","construct":"辨主旨、排除細節曲解","cefr":"C1","multiSelect":true,"intro":"In the Renaissance, painters learned to represent depth on a flat surface.","stem":"Choose the TWO statements that express the most important ideas in the passage.","options":["Linear perspective used a vanishing point and shrinking sizes to make flat paintings appear deep.","Beyond improving realism, perspective expressed a new confidence that the world could be measured through geometry.","Brunelleschi was an architect.","Masaccio painted only frescoes.","Most medieval paintings were larger than Renaissance ones."],"answer":[0,1],"rationale":"A=方法（段2）；B=更深層意義（段3）。涵蓋全文。","distractorRationale":["C 屬人物細節非主旨","D 過度概化、文中未限定『只畫』","E 文中未比較尺寸，捏造"]}]},{"id":"R-myco-001","section":"reading","format":"2026-adaptive","topic":"Biology — Mycorrhizal networks","targetCEFR":"C1","author":"self-authored, original; format calibrated to official 2026 spec","passage":"Beneath the floor of many forests lies a hidden web of fungal threads that links the roots of separate trees. These fungi, known as mycorrhizae, attach themselves to roots and reach far into the soil, absorbing water and mineral nutrients that they pass to their host. In return, the tree supplies the fungi with sugars produced through photosynthesis. The relationship is therefore mutually beneficial, and few trees in temperate forests grow well without it.\n\nRecent research suggests that the network does more than feed individual trees. Because a single fungus may connect dozens of plants, resources can flow from one tree to another along the fungal bridges. Older, well-established trees sometimes transfer carbon to shaded seedlings that cannot yet produce enough of their own, enhancing the younger plants' chances of survival.\n\nCritics caution, however, that the scale of such transfers in natural forests remains uncertain. Much of the supporting evidence is derived from laboratory conditions, where variables are tightly controlled and may not reflect the complexity of a living woodland. Whether the so-called 'wood-wide web' significantly shapes forest dynamics, or merely operates at the margins, is still a matter of active debate.","insertSentence":"This exchange is the basis of their partnership.","questions":[{"id":"q1","type":"factual-information","construct":"在文中定位明示的事實","cefr":"B2-C1","stem":"According to the passage, what do mycorrhizal fungi obtain from their host tree?","options":["Water drawn from deep in the soil","Sugars produced by photosynthesis","Mineral nutrients released by decaying matter","Protection from competing fungi"],"answer":1,"rationale":"段1明寫『the tree supplies the fungi with sugars produced through photosynthesis』。","distractorRationale":["A 是真菌『給』樹的（方向相反）","C 也是真菌提供給樹的養分（方向相反）","D 文中未提及，憑空想像"]},{"id":"q2","type":"vocabulary","construct":"情境中的詞義","cefr":"C1","stem":"In paragraph 1, \"mutually beneficial\" is closest in meaning to","options":["difficult to maintain","advantageous to both sides","rarely successful","useful only for a short time"],"answer":1,"rationale":"mutual=雙方，beneficial=有利；雙方互利。","distractorRationale":["A 與『互利』無關，偷換成『難維持』","C 與文義相反（文中是普遍成功的共生）","D 加入『短暫』這個文中沒有的限制"]},{"id":"q3","type":"inference","construct":"由文本推論未明說的內容","cefr":"C1","stem":"What can be inferred about the shaded seedlings mentioned in paragraph 2?","options":["They grow faster than the older trees around them.","They cannot yet meet all of their own energy needs.","They usually belong to a different species from the older trees.","They damage the fungi they are connected to."],"answer":1,"rationale":"『transfer carbon to shaded seedlings that cannot yet produce enough of their own』→ 幼苗自身能量不足，需外援。","distractorRationale":["A 與『需要被接濟』矛盾","C 文中未涉及物種異同","D 與互利前提矛盾，且無依據"]},{"id":"q4","type":"sentence-simplification","construct":"保留核心意義的改寫","cefr":"C1","highlight":"Critics caution, however, that the scale of such transfers in natural forests remains uncertain.","stem":"Which of the following best expresses the essential information in the highlighted sentence? Incorrect choices change the meaning or leave out essential information.","options":["Critics agree that large transfers occur in every natural forest.","Some experts doubt how large these transfers really are in the wild.","Critics believe such transfers never happen outside laboratories.","The scale of these transfers is easy to measure in natural forests."],"answer":1,"rationale":"保留『質疑(caution)＋規模不確定(scale remains uncertain)』兩個核心。","distractorRationale":["A 把『質疑』竄改成『同意』，且加上絕對化『every』","C 極端化成『絕不發生』，原文只說規模不確定","D 與『remains uncertain』相反"]},{"id":"q5","type":"insert-text","construct":"句子邏輯銜接位置","cefr":"C1","stem":"Look at the four squares [A], [B], [C], [D] that indicate where the following sentence could be added: \"This exchange is the basis of their partnership.\" Where does the sentence best fit?","positions":{"A":"在『...pass to their host.』之後（只講了真菌給樹，尚未講樹回給真菌）","B":"在『...sugars produced through photosynthesis.』之後（雙向交換都講完了）","C":"在『...grow well without it.』之後（段落結尾）","D":"第二段開頭"},"answer":"B","rationale":"『This exchange』需要前文同時出現『真菌→養分』與『樹→醣』兩個方向才能指涉；只有在 B（兩向都講完）後接才成立，且自然引出後句『因此關係互利』。","distractorRationale":["A 此處只講了單向，『exchange』無所指","C 已進入結論句，插入打斷『因此互利』的因果","D 第二段轉談網路傳輸，主題已換"]},{"id":"q6","type":"prose-summary","construct":"辨識主旨與要點、排除細節與曲解","cefr":"C1","multiSelect":true,"intro":"Mycorrhizal fungi form a hidden network that connects trees through their roots.","stem":"Choose the TWO statements that express the most important ideas in the passage.","options":["Fungi and trees trade soil nutrients for sugars in a relationship that benefits both.","The fungal network may move resources such as carbon between connected plants, though its real-world importance is debated.","Mycorrhizae are found only in temperate forests.","Photosynthesis takes place in the roots of trees.","Laboratory studies are always more reliable than studies done in forests."],"answer":[0,1],"rationale":"A=段1主旨（互利交換）；B=段2+段3主旨（網路傳輸＋爭議）。兩者涵蓋全文骨幹。","distractorRationale":["C 過度概化的細節，且文中未限定『只有』溫帶","D 事實錯誤（光合在葉不在根）","E 曲解，原文反而提醒實驗室≠真實林地"]}]},{"id":"R-sunkcost-006","section":"reading","format":"2026-adaptive","topic":"Behavioral Economics — The Sunk-Cost Fallacy","targetCEFR":"C2","author":"self-authored, original; format calibrated to official 2026 spec; ceiling-difficulty item","passage":"Economists generally assume that rational decision-makers consider only future costs and benefits. Money, time, or effort already spent — what they term a sunk cost — should be irrelevant, because no present decision can recover it. Yet a substantial body of research demonstrates that people routinely violate this principle, persisting with a failing course of action precisely because they have already invested heavily in it.\n\nThe pattern, known as the sunk-cost fallacy, appears across remarkably varied contexts. An individual may sit through a tedious film simply because the ticket was expensive, and governments have continued to fund unpromising projects on the grounds that abandoning them would waste the sums already committed. In each case, prior investment, which logically ought to be disregarded, instead distorts the assessment of what remains genuinely worthwhile.\n\nSeveral explanations have been proposed. Some researchers emphasize a reluctance to appear wasteful, since admitting that resources were squandered can feel like conceding incompetence. Others point to loss aversion, the well-documented tendency to weigh losses more heavily than equivalent gains. Whatever its precise origin, the fallacy illustrates a recurring theme in behavioral economics: that human judgment departs systematically from the idealized rationality that classical models presuppose.","insertSentence":"The choice that follows, in other words, is driven by the past rather than by the future.","questions":[{"id":"q1","type":"factual-information","construct":"定位明示事實","cefr":"C1-C2","stem":"According to economists, why should a sunk cost be irrelevant to a present decision?","options":["Because it is usually a small amount","Because no present decision can recover what was already spent","Because future benefits are impossible to predict","Because governments rarely track such costs"],"answer":1,"rationale":"段1：已花費的無法被當下決策收回，故應無關。","distractorRationale":["A 與金額大小無關","C 偷換成『未來不可預測』","D 與政府追蹤無關"]},{"id":"q2","type":"vocabulary","construct":"情境詞義","cefr":"C2","stem":"In paragraph 3, \"squandered\" is closest in meaning to","options":["wasted","invested wisely","hidden","recovered"],"answer":0,"rationale":"squander＝浪費/揮霍。","distractorRationale":["B 與『浪費』相反","C 偷換成隱藏","D 與『無法收回』矛盾"]},{"id":"q3","type":"inference","construct":"推論動機","cefr":"C2","stem":"It can be inferred that a government might keep funding an unpromising project because","options":["the project has become profitable","stopping would mean admitting earlier spending was wasted","future costs are guaranteed to be low","economists recommend continuing"],"answer":1,"rationale":"段2-3：放棄＝承認先前投入被浪費＝像承認無能，故傾向續投。","distractorRationale":["A 文中專案是『unpromising』","C 文中無此保證","D 與經濟學理性建議相反"]},{"id":"q4","type":"sentence-simplification","construct":"保留核心意義改寫","cefr":"C2","highlight":"In each case, prior investment, which logically ought to be disregarded, instead distorts the assessment of what remains genuinely worthwhile.","stem":"Which best expresses the essential information in the highlighted sentence? Incorrect choices change the meaning or leave out essential information.","options":["Past spending, which should be ignored, instead warps people's judgment of what is still worth doing.","People correctly ignore past spending when judging what is worthwhile.","Only future costs ever influence people's decisions.","Investments always make decisions more accurate."],"answer":0,"rationale":"核心＝本該忽略的過往投入，反而扭曲了對『還值不值得』的判斷。","distractorRationale":["B 與『instead distorts』相反","C 與全文現象相反","D 與『distorts』相反"]},{"id":"q5","type":"insert-text","construct":"句子邏輯銜接","cefr":"C2","stem":"Look at the squares [A], [B], [C], [D]. Where does this sentence best fit: \"The choice that follows, in other words, is driven by the past rather than by the future.\"","positions":{"A":"在段1『...invested heavily in it.』之後（剛點出人因已投入而續行）","B":"在段2開頭","C":"在段2『...remains genuinely worthwhile.』之後","D":"在段3結尾"},"answer":"A","rationale":"此句是對『因已重金投入而堅持』的同義重述（in other words），最適放在該命題剛提出之後（段1末）。","distractorRationale":["B 段2要開始舉例，插入打斷","C 該處已在講扭曲評估，重述位置偏晚","D 結尾在談理性偏離，語意不接"]},{"id":"q6","type":"prose-summary","construct":"辨主旨、排除細節曲解","cefr":"C2","multiSelect":true,"intro":"People often stick with failing choices because of what they have already invested.","stem":"Choose the TWO statements that express the most important ideas in the passage.","options":["Although sunk costs should be irrelevant, people frequently let prior investment keep them in failing courses of action.","Explanations include not wanting to seem wasteful and loss aversion; the fallacy shows judgment departing from ideal rationality.","Governments fund many film projects.","Loss aversion means people enjoy taking risks.","Economists never make irrational decisions."],"answer":[0,1],"rationale":"A=現象與違反原則（段1-2）；B=解釋與意涵（段3）。為全文主軸。","distractorRationale":["C 是舉例細節且曲解","D 誤解 loss aversion（其實是厭惡損失）","E 與全文（人皆偏離理性）相反"]}]}],"listening":[{"id":"L-advising-002","section":"listening","format":"2026","type":"Conversation","topic":"Campus Conversation — Switching an Elective","targetCEFR":"C1","author":"self-authored, original; format calibrated to official 2026 listening spec","script":["Student: Hi Professor Reyes, do you have a minute? I wanted to ask about switching my elective.","Advisor: Of course, come in. You're currently signed up for Introduction to Sociology, right?","Student: Yes, but it now conflicts with a lab session I just got moved into. I was hoping to switch to your Anthropology course instead.","Advisor: That should be possible. The anthropology class still has a few open seats. Have you taken any of the prerequisites?","Student: I took Cultural Studies last semester. Does that count?","Advisor: It does — that satisfies the requirement. The only catch is that you'd be joining two weeks late, so you'll need to catch up on the first readings.","Student: That's fine. Is there a reading list online?","Advisor: Yes, it's all on the course page. I'd start with the chapter on fieldwork methods. And do drop by my office hours if the catch-up feels overwhelming.","Student: Great, thank you. I'll submit the change form today.","Advisor: Perfect. I'll approve it as soon as it comes through."],"questions":[{"id":"q1","type":"gist-purpose","construct":"對話目的","cefr":"B2-C1","stem":"Why does the student go to see the advisor?","options":["To drop out of the semester","To switch from one elective to another","To complain about a professor","To ask for a grade change"],"answer":1,"rationale":"開頭即說『ask about switching my elective』。","distractorRationale":["A 無退選之說","C 無抱怨","D 與成績無關"]},{"id":"q2","type":"detail","construct":"細節","cefr":"C1","stem":"Why does the student want to switch courses?","options":["The current course is too difficult","It now conflicts with a lab session","The professor recommended it","The course was cancelled"],"answer":1,"rationale":"『it now conflicts with a lab session I just got moved into』。","distractorRationale":["A 未提難度","C 非教授建議","D 課程未取消"]},{"id":"q3","type":"detail","construct":"細節","cefr":"C1","stem":"What satisfies the prerequisite for the anthropology course?","options":["Introduction to Sociology","The lab session","Cultural Studies, taken last semester","Office hours attendance"],"answer":2,"rationale":"顧問確認『Cultural Studies … satisfies the requirement』。","distractorRationale":["A 是原本要退的課","B 實驗課與先修無關","D 辦公室時間非先修"]},{"id":"q4","type":"inference","construct":"推論","cefr":"C1","stem":"What does the student need to do because of joining the class late?","options":["Retake Cultural Studies","Catch up on the first readings","Find a new advisor","Drop the lab session"],"answer":1,"rationale":"晚兩週加入→『catch up on the first readings』。","distractorRationale":["A 無需重修","C 無換顧問之說","D 實驗課正是要保留的"]},{"id":"q5","type":"function","construct":"說話用意","cefr":"C1-C2","stem":"Why does the advisor mention his office hours?","options":["To require the student to attend","To offer help if catching up becomes difficult","To explain where the class meets","To reschedule the lab session"],"answer":1,"rationale":"『drop by my office hours if the catch-up feels overwhelming』＝提供補課協助。","distractorRationale":["A 是『if…』非強制","C 與上課地點無關","D 與實驗課改期無關"]}]},{"id":"L-migration-001","section":"listening","format":"2026","type":"Academic Talk","topic":"Biology Lecture — Animal Navigation","targetCEFR":"C1","author":"self-authored, original; format calibrated to official 2026 listening spec","script":["Today we're going to look at how animals find their way during long migrations.","Take the Arctic tern, a small seabird that travels from the Arctic to the Antarctic and back every single year.","That's a round trip of roughly seventy thousand kilometers — the longest migration of any animal on Earth.","So how do they manage it? Researchers believe they rely on several cues at the same time.","During the day, many birds use the position of the sun, adjusting for the time of day.","At night, some species orient themselves by the patterns of the stars.","And perhaps most remarkably, many migratory animals can detect the Earth's magnetic field, almost like a built-in compass.","Here's the key point: no single cue is essential.","If clouds hide the sun, or the magnetic signal is disturbed, the animal simply switches to another cue.","This backup system — what biologists call redundancy — is exactly why their navigation stays so reliable, even in bad weather."],"questions":[{"id":"q1","type":"gist","construct":"主旨","cefr":"B2-C1","stem":"What is the lecture mainly about?","options":["Why the Arctic tern is endangered","How migratory animals find their way","How birds build their nests","Why animals migrate in winter"],"answer":1,"rationale":"全篇圍繞『動物如何導航』展開。","distractorRationale":["A 未談瀕危","C 與築巢無關","D 講的是『如何導航』非『為何遷徙』"]},{"id":"q2","type":"detail","construct":"細節","cefr":"C1","stem":"Why does the professor mention the Arctic tern?","options":["To give an example of the longest animal migration","To show that seabirds cannot navigate well","To explain how birds use the magnetic field","To compare it with the Antarctic tern"],"answer":0,"rationale":"Arctic tern 被舉為『最長遷徙』的例子。","distractorRationale":["B 與文意相反","C 海王星…磁場是後面通則，非舉燕鷗的目的","D 文中無此比較"]},{"id":"q3","type":"detail","construct":"細節","cefr":"C1","stem":"According to the professor, how do some birds navigate at night?","options":["By following coastlines","By the patterns of the stars","By listening for other birds","By the position of the sun"],"answer":1,"rationale":"『At night, some species orient themselves by the patterns of the stars.』","distractorRationale":["A 未提海岸線","C 未提聲音","D 那是白天用太陽"]},{"id":"q4","type":"function","construct":"說話功能/用意","cefr":"C1-C2","stem":"Why does the professor say, \"no single cue is essential\"?","options":["To argue that animals navigate poorly","To emphasize that animals can switch cues, which keeps navigation reliable","To prove the magnetic field is the only cue that matters","To suggest that birds rarely migrate in bad weather"],"answer":1,"rationale":"緊接著說明：某個線索失效就換另一個→冗餘使導航可靠。","distractorRationale":["A 與『可靠』相反","C 與『沒有單一線索是必要』相反","D 文意是壞天氣仍可靠導航"]},{"id":"q5","type":"inference","construct":"推論","cefr":"C1-C2","stem":"What can be inferred about navigation on a cloudy night?","options":["The animal would be completely lost.","The animal could still navigate using another cue, such as the magnetic field.","The animal would wait until the sky cleared.","The animal would rely only on the stars."],"answer":1,"rationale":"雲遮星/日時，動物切換到其他線索（如磁場）→ 仍能導航。","distractorRationale":["A 與冗餘機制相反","C 文中無『等待』之說","D 多雲時看不到星，邏輯矛盾"]}]},{"id":"L-sleep-003","section":"listening","format":"2026","type":"Academic Talk","topic":"Psychology Lecture — Sleep and Memory","targetCEFR":"C1","author":"self-authored, original; format calibrated to official 2026 listening spec","script":["In today's session, I want to talk about why sleep matters for learning.","It might seem that staying awake to study longer is always better, but the research suggests otherwise.","During sleep, especially deep sleep, the brain appears to replay and strengthen the connections formed while you were awake.","This process, called consolidation, helps move fragile new memories into more stable, long-term storage.","In one classic experiment, students who slept after learning a list of words recalled far more of them the next day than students who stayed awake.","And interestingly, it isn't only facts that benefit.","Skills that involve movement — like playing a piece of music — also improve after a night's sleep, even without extra practice.","There's a practical lesson here: cramming all night before an exam can actually backfire.","You may feel you've covered more material, but without sleep, much of it never gets properly stored.","So the next time you're tempted to skip sleep to study, remember that those hours of rest are doing real cognitive work."],"questions":[{"id":"q1","type":"gist","construct":"主旨","cefr":"B2-C1","stem":"What is the lecture mainly about?","options":["How to fall asleep faster","Why sleep is important for memory and learning","The dangers of too much sleep","How musicians practice"],"answer":1,"rationale":"全篇圍繞睡眠對記憶/學習的重要性。","distractorRationale":["A 未談入睡技巧","C 與『太多睡眠的危險』相反","D 音樂只是舉例"]},{"id":"q2","type":"detail","construct":"細節","cefr":"C1","stem":"According to the professor, what does consolidation do?","options":["It keeps the brain awake during sleep","It moves fragile new memories into more stable, long-term storage","It erases unimportant memories","It speeds up reading"],"answer":1,"rationale":"明確定義：consolidation 把脆弱新記憶移入穩定長期儲存。","distractorRationale":["A 與睡眠中發生矛盾","C 文中是強化非抹除","D 與閱讀速度無關"]},{"id":"q3","type":"detail","construct":"細節","cefr":"C1","stem":"What did the word-list experiment show?","options":["Students who stayed awake remembered more","Students who slept afterward recalled far more words","Sleep had no effect on memory","Only movement skills improved"],"answer":1,"rationale":"睡了的學生隔天記得遠比熬夜者多。","distractorRationale":["A 方向相反","C 與實驗結果相反","D 那是另一個論點"]},{"id":"q4","type":"function","construct":"說話用意","cefr":"C1-C2","stem":"Why does the professor mention playing a piece of music?","options":["To show that even movement skills improve after sleep, not just facts","To suggest students should learn an instrument","To prove that practice is unnecessary","To change the topic to music"],"answer":0,"rationale":"緊接『不只事實受益』，舉演奏為例證明動作技能也因睡眠改善。","distractorRationale":["B 非建議學樂器","C 過度推論（仍需先練）","D 並非轉題"]},{"id":"q5","type":"inference","construct":"推論","cefr":"C1-C2","stem":"What can be inferred about studying all night before an exam?","options":["It is the most effective strategy","It can backfire because material may not be properly stored without sleep","It improves movement skills only","It guarantees higher recall"],"answer":1,"rationale":"熬夜雖覆蓋更多，但缺睡眠→未妥善儲存→可能適得其反。","distractorRationale":["A 與『backfire』相反","C 曲解","D 與『never gets properly stored』相反"]}]}],"resources":{"note":"題源中心：官方品質的練習來源（導流，不嵌入版權題）。official=true 為 ETS 官方。","spec_2026":{"reading":"Module 1/2 適性，最多 50 題；三任務型：Complete the Words(填字母)、Read in Daily Life(社群貼文/email)、Read an Academic Passage(學術段落 ~190字)。領域：歷史/藝術音樂/商業經濟/生命科學/物理科學/社科。","listening":"最多 47 題，分 Module 適性；含 Listen and Choose a Response、Conversation、Announcement、Academic Talk。","scoring":"四科各 1–6（0.5 級距），總分＝四科平均四捨五入 0.5；5.0=C1。"},"resources":[{"cat":"官方 ETS","official":true,"title":"TOEFL 新制 Sample Test（Jan 2026）","url":"https://www.ets.org/toefl/test-takers/ibt/prepare/sample-test-jan-2026-1.html","note":"官方新制介面互動樣題，最接近真實考試操作。填表後啟動。"},{"cat":"官方 ETS","official":true,"title":"官方全真模擬卷 Practice Test 1（新制 PDF）","url":"https://www.ets.org/pdfs/toefl/toefl-ibt-full-length-practice-test-1.pdf","note":"明載對齊 2026/1/21 新制。含 Complete the Words／Daily Life／Academic 三型＋答案鍵。本系統的校準錨即取自此卷學術段落。"},{"cat":"官方 ETS","official":true,"title":"官方 Reading Practice Sets（PDF）","url":"https://www.ets.org/pdfs/toefl/toefl-ibt-reading-practice-sets.pdf","note":"官方閱讀練習組，含學術段落與題目。"},{"cat":"官方 ETS","official":true,"title":"官方測驗總覽 Test Overview（PDF）","url":"https://www.ets.org/pdfs/toefl/toefl-ibt-test-overview.pdf","note":"新制四科結構、題型、計分官方說明。出題規格以此為準。"},{"cat":"官方 ETS（全球）","official":true,"title":"ETS TestReady — 全球官方總入口","url":"https://testready.ets.org","note":"全球官方帳號通用。免費四科 Section Practice＋官方 Sample；付費可加購全真。台灣站只是此內容的在地代理。"},{"cat":"官方 ETS（全球）","official":true,"title":"TOEFL Practice Online（TPO）2026 新制 — 官方全真退役真題","url":"https://www.ets.org/store.html","note":"最接近真考的官方全真模擬，用退役真題、新制版已上架，約 US$45–49/回，ETS Store 全球可買。要『官方算分校準』就用這個。"},{"cat":"官方 台灣代理","official":true,"title":"TOEFL 官方全真線上模擬（台灣 忠欣）","url":"https://www.toefl.com.tw/learning/practice-online","note":"與 ETS 同源的官方全真，在地入口；限時/不限時，90 天內完成。偏好中文介面/在地付費可用，但內容同 TestReady。"},{"cat":"第三方 免費","official":false,"title":"TOEFLMock — 16 回新制全真模考","url":"https://www.toeflmocktests.com/practice-tests/full-test/","note":"第三方原創、宣稱對齊新制，免費在站上練。"},{"cat":"第三方 免費","official":false,"title":"Magoosh / TST Prep — 新制免費模考與 PDF","url":"https://magoosh.com/toefl/toefl-practice-test/","note":"第三方原創練習與策略，免費。"}]}};</script>
+<script>
+/* ============ 常數 / 資料 ============ */
+const KEY='toefl2026', TARGET=5.5, PLAN_START='2026-06-24';
+const SECTIONS=[['reading','閱讀'],['listening','聽力'],['speaking','口說'],['writing','寫作']];
+const WEEKS=[
+ {t:'診斷＋建立節奏',tasks:['完成診斷模考','熟悉新制四科介面','建立每日三段習慣']},
+ {t:'閱讀＋聽力打地基',tasks:['閱讀六題型分類','聽力筆記法','適性開局穩定練習']},
+ {t:'閱讀＋聽力提速',tasks:['閱讀 18 分/篇','聽力 1.25 倍速精聽','半套 R+L 模考']},
+ {t:'寫作主攻',tasks:['整合寫作模板','學術討論題 10 分成文','寫作 2 篇＋批改']},
+ {t:'口說主攻',tasks:['獨立題 15 秒構思','整合題 readback','錄音→自評→重錄']},
+ {t:'全真模考 1',tasks:['完整模考','錯題歸因','弱項回補']},
+ {t:'全真模考 2＋適性穩定',tasks:['模考 2','第一階段零失誤','體力分配']},
+ {t:'衝刺＋考場節奏',tasks:['模考 3','只修最後破口','考場流程＋心理']},
+];
+const VOCAB=[
+ ['ubiquitous','adj 無所不在的','Smartphones have become ubiquitous in modern life.'],
+ ['mitigate','v 減輕、緩和','Planting trees can mitigate urban heat.'],
+ ['paradigm','n 典範、範式','The discovery caused a paradigm shift in physics.'],
+ ['empirical','adj 經驗實證的','The claim lacks empirical evidence.'],
+ ['salient','adj 顯著的','She summarized the salient points of the report.'],
+ ['nuance','n 細微差別','He missed the nuance of the argument.'],
+ ['cohesion','n 連貫、凝聚','Good essays show cohesion between paragraphs.'],
+ ['deteriorate','v 惡化','Air quality deteriorated over the decade.'],
+ ['prevalent','adj 普遍的','This belief was prevalent in the 19th century.'],
+ ['scrutinize','v 仔細審查','Editors scrutinize every claim.'],
+ ['ambiguous','adj 模稜兩可的','The instructions were ambiguous.'],
+ ['coherent','adj 條理分明的','Make a coherent argument.'],
+ ['derive','v 衍生、得出','We derive the formula from first principles.'],
+ ['hypothesis','n 假設','The data supported the hypothesis.'],
+ ['inherent','adj 固有的','Risk is inherent in any investment.'],
+ ['integral','adj 不可或缺的','Practice is integral to fluency.'],
+ ['plausible','adj 看似合理的','That is a plausible explanation.'],
+ ['profound','adj 深刻的','The book had a profound impact.'],
+ ['reluctant','adj 不情願的','Students were reluctant to speak.'],
+ ['substantial','adj 大量的','A substantial portion agreed.'],
+ ['viable','adj 可行的','Solar power is now viable.'],
+ ['comprehensive','adj 全面的','A comprehensive review of the field.'],
+ ['constitute','v 構成','These factors constitute the problem.'],
+ ['facilitate','v 促進','Tools that facilitate learning.'],
+ ['hinder','v 阻礙','Noise can hinder concentration.'],
+ ['implication','n 含意、影響','Consider the implications of the policy.'],
+ ['intrinsic','adj 內在的','Intrinsic motivation drives learning.'],
+ ['juxtapose','v 並置對比','The author juxtaposes wealth and poverty.'],
+ ['prone','adj 易於…的','Beginners are prone to errors.'],
+ ['refute','v 反駁','The study refutes earlier claims.'],
+ ['robust','adj 穩健的','A robust experimental design.'],
+ ['speculate','v 推測','Scientists speculate about the cause.'],
+ ['threshold','n 門檻、臨界點','Below a certain threshold, effects vanish.'],
+ ['undermine','v 削弱','Errors undermine credibility.'],
+ ['validate','v 驗證','We validated the model with new data.'],
+ ['arbitrary','adj 任意的、武斷的','The cutoff seems arbitrary.'],
+ ['compelling','adj 有說服力的','A compelling case for change.'],
+ ['discrepancy','n 差異','A discrepancy between the two reports.'],
+ ['advocate','v 倡導','She advocates for reform.'],
+ ['notion','n 觀念、想法','The notion that talent is fixed is false.'],
+];
+const SPEAK_PROMPTS=[
+ {type:'獨立題',prep:15,talk:45,q:'Some students prefer to study alone, while others prefer to study in groups. Which do you prefer, and why? Use specific reasons and examples.'},
+ {type:'獨立題',prep:15,talk:45,q:'Do you agree or disagree? Universities should require all students to take at least one public-speaking course. Explain your reasons.'},
+ {type:'整合題',prep:30,talk:60,q:'（整合題練習）先讀一段校園公告或學術概念，再聽一段相關談話，然後用 60 秒複述兩者的關係。先用此做 readback 筆記練習。'},
+];
+const WRITE_PROMPTS=[
+ {type:'學術討論題',min:10,words:100,q:'Professor: Some argue the most effective way for a city to cut its environmental impact is investing in public transportation; others say it is regulating construction to be more energy-efficient. Which should a city prioritize, and why?\n\nKevin: Public transport matters most — fewer cars means less pollution immediately.\n\nMei: But buildings use energy for decades; efficient construction lasts longer.\n\n任務：10 分鐘內寫 100+ 字，表明立場、給兩個理由與一個例子，並回應至少一位同學。'},
+ {type:'整合寫作',min:20,words:180,q:'（整合寫作練習）閱讀一段提出三論點的短文，再聽一段逐點反駁的講座，然後用 180–220 字說明「聽力如何反駁閱讀的每一點」。先練模板：第1段點出對立、第2–4段逐點對比。'},
+];
+const FALLBACK_READING={ id:'R-fallback', topic:'(離線備援題) Mycorrhizal networks', targetCEFR:'C1',
+ passage:'Beneath many forests lies a hidden web of fungal threads linking the roots of separate trees. These fungi pass water and minerals to their host, and in return receive sugars from photosynthesis. The relationship is mutually beneficial.',
+ questions:[{type:'factual-information',stem:'What do the fungi receive from the tree?',options:['Water','Sugars from photosynthesis','Minerals','Protection'],answer:1,rationale:'',distractorRationale:['','','','']}]};
+
+let CONTENT={reading:[],listening:[],resources:{resources:[]},error:null};
+let S=load();
+
+/* ============ 狀態 ============ */
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return Object.assign({scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false},d);}catch(e){}
+ return {scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false};}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+/* ============ 工具 ============ */
+const $=s=>document.querySelector(s);
+function daysSince(d){return Math.floor((Date.now()-new Date(d+'T00:00:00').getTime())/86400000);}
+function curWeek(){return Math.min(8,Math.max(1,Math.floor(daysSince(PLAN_START)/7)+1));}
+function overall(){const v=SECTIONS.map(([k])=>S.scores[k]).filter(x=>x!=null);if(v.length<4)return null;return Math.round(v.reduce((a,b)=>a+b,0)/4*2)/2;}
+function rateToBand(p){if(p>=0.95)return 6;if(p>=0.85)return 5.5;if(p>=0.72)return 5;if(p>=0.58)return 4.5;if(p>=0.45)return 4;if(p>=0.32)return 3.5;if(p>=0.2)return 3;return 2.5;}
+function chkToBand(c,t){const p=c/t;if(p>=1)return 6;if(p>=0.85)return 5.5;if(p>=0.7)return 5;if(p>=0.5)return 4.5;if(p>=0.34)return 4;if(p>0)return 3.5;return 3;}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+/* ============ 載入內容 ============ */
+async function loadContent(){
+  if(typeof window!=='undefined'&&window.__EMBED__){
+    CONTENT.reading=window.__EMBED__.reading||[];
+    CONTENT.listening=window.__EMBED__.listening||[];
+    CONTENT.resources=window.__EMBED__.resources||{resources:[]};
+    return;
+  }
+  try{
+    const mf=await (await fetch('content/manifest.json')).json();
+    const load=async e=>{const o=await (await fetch('content/'+e.file)).json();o._meta=e;return o;};
+    CONTENT.reading=await Promise.all((mf.reading||[]).map(load));
+    CONTENT.listening=await Promise.all((mf.listening||[]).map(load));
+    try{CONTENT.resources=await (await fetch('content/resources.json')).json();}catch(e){CONTENT.resources={resources:[]};}
+  }catch(e){
+    CONTENT.reading=[FALLBACK_READING];CONTENT.listening=[];CONTENT.resources={resources:[]};CONTENT.error=e.message;
+  }
+}
+
+/* ============ 路由 ============ */
+let TAB='dash';
+function go(tab){TAB=tab;document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));render();try{window.scrollTo(0,0);}catch(e){}}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
+function render(){({dash:Dash,read:Read,listen:Listen,vocab:Vocab,speak:Speak,write:Write,diag:Diag,mock:MockIntro,res:Resources}[TAB]||Dash)();}
+
+/* ============ 總覽 ============ */
+function Dash(){
+  const wk=curWeek(),ov=overall(),W=WEEKS[wk-1];
+  const gap=ov==null?null:Math.max(0,(TARGET-ov)).toFixed(1);
+  const sc=SECTIONS.map(([k,n])=>{const v=S.scores[k];return `<div class="s"><small>${n}</small><b style="color:${v==null?'var(--mut)':v>=5.5?'var(--good)':v>=5?'var(--txt)':'var(--warn)'}">${v==null?'—':v}</b></div>`;}).join('');
+  const tasks=W.tasks.map((t,i)=>{const id=`${wk}-${i}`,done=S.done[id];return `<li class="${done?'done':''}"><span class="dot"></span><span style="flex:1">${t}</span><button class="ghost small" onclick="toggleTask('${id}')">${done?'↺':'✓'}</button></li>`;}).join('');
+  const wkDone=W.tasks.filter((_,i)=>S.done[`${wk}-${i}`]).length;
+  $('#hdrSub').textContent=`第 ${wk}/8 週 · ${W.t} · 目標 ${TARGET}`;
+  $('#view').innerHTML=`
+   <div class="card">
+     <div class="flex-between"><h2 style="margin:0">目前總分（四科平均）</h2>
+       ${ov==null?'<span class="pill gap">尚未集滿四科</span>':(ov>=TARGET?'<span class="pill ok">已達標 🎯</span>':`<span class="pill gap">距 ${TARGET} 差 ${gap}</span>`)}</div>
+     <div class="big" style="margin:8px 0">${ov==null?'—':ov}<span class="mut" style="font-size:14px"> / 6.0</span></div>
+     <div class="scoregrid">${sc}</div>
+     <p class="small mut" style="margin:10px 0 0">四科任一掉到 5.0 以下都會拉低平均；先補最弱科。${CONTENT.error?'<br><span class="bad">內容離線（'+esc(CONTENT.error)+'）：請用本機 server 或部署後開啟以載入完整題庫。</span>':''}</p>
+   </div>
+   <div class="card">
+     <div class="row">
+       <button class="acc" onclick="go('diag')">🩺 診斷</button>
+       <button onclick="go('mock')">📝 全真模考</button>
+       <button onclick="go('res')">🌐 題源中心（官方）</button>
+       <button class="ghost" onclick="exportData()">匯出進度</button>
+     </div>
+     <p class="small mut" style="margin:10px 0 0">題庫：閱讀 ${CONTENT.reading.length} 篇、聽力 ${CONTENT.listening.length} 篇（皆通過難度閘門，校準對齊官方）。</p>
+   </div>
+   <div class="card">
+     <div class="flex-between"><h2 style="margin:0">第 ${wk} 週進度</h2><span class="small mut">${wkDone}/${W.tasks.length}</span></div>
+     <div class="bar" style="margin:8px 0"><i style="width:${wkDone/W.tasks.length*100}%"></i></div>
+     <ul class="task">${tasks}</ul>
+   </div>
+   <div class="card"><h2>八週藍圖</h2>
+     ${WEEKS.map((w,i)=>`<div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="small">W${i+1} · ${w.t}</span>${i+1<wk?'<span class="pill ok small">過</span>':i+1===wk?'<span class="pill gap small">本週</span>':'<span class="pill small mut">—</span>'}</div>`).join('')}
+   </div>`;
+}
+function toggleTask(id){S.done[id]=!S.done[id];save();Dash();}
+function exportData(){try{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='toefl2026_progress.json';a.click();}catch(e){alert('匯出失敗：'+e.message);}}
+
+/* ============ 題源中心 ============ */
+function Resources(){
+  const R=CONTENT.resources||{},list=R.resources||[];
+  const cats=[...new Set(list.map(r=>r.cat))];
+  $('#view').innerHTML=`
+   <div class="card"><h2>🌐 題源中心（官方品質）</h2>
+     <p class="small mut">官方算分校準、我的題堆量。要練官方全真，走全球官方總入口 ETS TestReady。</p>
+     ${R.spec_2026?`<details class="small"><summary>新制規格速覽</summary><p class="mut" style="margin:6px 0">閱讀：${esc(R.spec_2026.reading)}</p><p class="mut">聽力：${esc(R.spec_2026.listening)}</p><p class="mut">計分：${esc(R.spec_2026.scoring)}</p></details>`:''}
+   </div>
+   ${cats.map(c=>`<div class="card"><h2>${esc(c)}</h2>
+     ${list.filter(r=>r.cat===c).map(r=>`<a class="reslink" href="${esc(r.url)}" target="_blank" rel="noopener"><b>${esc(r.title)}</b>${r.official?' <span class="pill ok small">官方</span>':''}<div class="small mut" style="margin-top:4px">${esc(r.note||'')}</div></a>`).join('')}
+   </div>`).join('')}
+   ${list.length===0?'<div class="card mut small">題源清單未載入（需本機 server / 部署）。</div>':''}`;
+}
+
+/* ============ 通用題目引擎 ============ */
+let Q=null,qTimer=null;
+function normalizeQ(q){
+  if(q.type==='insert-text'&&q.positions){
+    const keys=Object.keys(q.positions);
+    return {kind:'single',stem:q.stem,choices:keys.map(k=>`[${k}] ${q.positions[k]}`),correct:keys.indexOf(q.answer),type:q.type};
+  }
+  if(q.multiSelect||Array.isArray(q.answer)){
+    return {kind:'multi',stem:(q.intro?('（引言）'+q.intro+'　'):'')+q.stem,choices:q.options,correct:q.answer.slice().sort(),type:q.type,need:q.answer.length};
+  }
+  return {kind:'single',stem:q.stem,choices:q.options,correct:q.answer,type:q.type,highlight:q.highlight};
+}
+function startQuiz(set,opts){
+  Q={set,i:0,ans:[],mode:opts.mode||'practice',onDone:opts.onDone,secs:0,timed:!!opts.timed,notes:'',audio:!!set.script};
+  if(Q.timed){clearInterval(qTimer);qTimer=setInterval(()=>{Q.secs++;const e=$('#qtime');if(e)e.textContent=fmt(Q.secs);},1000);}
+  renderQ();
+}
+function renderQ(){
+  const set=Q.set,raw=set.questions[Q.i],q=normalizeQ(raw),picked=Q.ans[Q.i];
+  const answered=picked!=null;
+  const reveal=Q.mode==='practice'&&answered;
+  let media='';
+  if(Q.audio){
+    media=`<div class="card" style="background:var(--card2);margin:0 0 10px">
+      <div class="flex-between"><b class="small">🎧 ${esc(set.type||'聽力')}</b>
+        <span><label class="small mut">速度 <select onchange="ttsRate(this.value)">
+          <option value="0.8">0.8x</option><option value="1" selected>1.0x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option></select></label></span></div>
+      <div class="row" style="margin-top:8px"><button class="acc" id="ttsBtn" onclick="ttsToggle()">▶ 播放</button><button class="ghost" onclick="ttsReplay()">↻ 重播</button></div>
+      <textarea rows="3" placeholder="筆記（只記結構詞/態度/例子標記）…" style="margin-top:8px" oninput="Q.notes=this.value">${esc(Q.notes)}</textarea>
+      <p class="small mut" style="margin:6px 0 0">真考聽力只能聽一次；練習可重播，但建議先逼自己聽一遍再作答。</p></div>`;
+  }else{
+    media=`<details ${Q.i===0?'open':''} style="margin:0 0 10px"><summary class="small mut">展開短文</summary><div class="passage" style="margin-top:8px">${set.passage.split('\n').map(p=>esc(p)).join('<br><br>')}</div></details>`;
+  }
+  const choices=q.choices.map((o,j)=>{
+    let cls='opt';
+    if(q.kind==='multi'){if(reveal){if(q.correct.includes(j))cls+=' right';else if((picked||[]).includes(j))cls+=' wrong';}else if((picked||[]).includes(j))cls+=' sel';
+      return `<button class="${cls}" onclick="toggleMulti(${j})">${String.fromCharCode(65+j)}. ${esc(o)}</button>`;}
+    if(reveal){if(j===q.correct)cls+=' right';else if(j===picked)cls+=' wrong';}else if(picked===j)cls+=' sel';
+    return `<button class="${cls}" onclick="pickQ(${j})">${String.fromCharCode(65+j)}. ${esc(o)}</button>`;
+  }).join('');
+  const meta=set._meta||{};
+  const canNext = q.kind==='multi' ? (Q.mode!=='practice'? (picked&&picked.length>0) : answered) : (Q.mode!=='practice'? picked!=null : answered);
+  $('#view').innerHTML=`
+   <div class="card">
+     <div class="flex-between"><span class="tag">${esc(raw.type||'題')}</span>
+       <span class="small mut">${esc(meta.topic||set.topic||'')} ${meta.cefr?'· <span class="pill '+(meta.cefr==='C2'?'c2':'c1')+' small">'+meta.cefr+'</span>':''} · 第 ${Q.i+1}/${set.questions.length} 題 ${Q.timed?'· <span class="timer" id="qtime">'+fmt(Q.secs)+'</span>':''}</span></div>
+     ${media}
+     ${q.highlight?`<div class="passage" style="max-height:none;margin-bottom:8px"><span class="mut small">highlight：</span>${esc(q.highlight)}</div>`:''}
+     <p style="font-weight:600">${esc(q.stem)}</p>
+     ${q.kind==='multi'?'<p class="small mut">複選——選 '+q.need+' 項。</p>':''}
+     ${choices}
+     ${q.kind==='multi'&&!reveal&&Q.mode==='practice'?'<button class="acc" style="margin-top:8px" onclick="submitMulti()" '+((picked&&picked.length===q.need)?'':'disabled')+'>送出</button>':''}
+     <div class="row" style="margin-top:10px">
+       ${Q.i>0?'<button class="ghost" onclick="navQ(-1)">上一題</button>':''}
+       ${canNext?(Q.i<set.questions.length-1?'<button class="acc" onclick="navQ(1)">下一題</button>':'<button class="acc" onclick="finishQuiz()">完成</button>'):''}
+     </div>
+   </div>`;
+}
+function pickQ(j){const raw=Q.set.questions[Q.i];if(Q.mode==='practice'&&Q.ans[Q.i]!=null)return;Q.ans[Q.i]=j;renderQ();}
+function toggleMulti(j){const cur=Q.ans[Q.i]||[];if(Q.mode==='practice'&&Array.isArray(cur)&&cur._locked)return;const i=cur.indexOf(j);if(i>=0)cur.splice(i,1);else cur.push(j);Q.ans[Q.i]=cur;renderQ();}
+function submitMulti(){const cur=Q.ans[Q.i]||[];cur._locked=true;Q.ans[Q.i]=cur;renderQ();}
+function navQ(d){if(d>0&&Q.mode==='practice'){/*ok*/}Q.i+=d;renderQ();}
+function quizScore(){let correct=0;const total=Q.set.questions.length;
+  Q.set.questions.forEach((raw,i)=>{const q=normalizeQ(raw),a=Q.ans[i];
+    if(q.kind==='multi'){const got=(a||[]).slice().sort();if(got.length===q.correct.length&&got.every((x,k)=>x===q.correct[k]))correct++;}
+    else if(a===q.correct)correct++;});
+  return {correct,total,band:rateToBand(correct/total)};}
+function finishQuiz(){clearInterval(qTimer);const r=quizScore();if(Q.onDone)Q.onDone(r);}
+
+/* TTS */
+let speechRate=1;
+function ttsAvail(){return typeof window!=='undefined'&&'speechSynthesis'in window;}
+function ttsSpeak(){if(!ttsAvail()||!Q||!Q.set.script)return;speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(Q.set.script.join(' '));u.lang='en-US';u.rate=speechRate;
+  const v=(speechSynthesis.getVoices()||[]).find(v=>/en[-_]US/i.test(v.lang));if(v)u.voice=v;
+  u.onend=()=>{const b=$('#ttsBtn');if(b)b.textContent='▶ 播放';};
+  speechSynthesis.speak(u);const b=$('#ttsBtn');if(b)b.textContent='⏸ 暫停';}
+function ttsToggle(){if(!ttsAvail()){alert('此瀏覽器不支援語音合成');return;}
+  if(speechSynthesis.speaking&&!speechSynthesis.paused){speechSynthesis.pause();$('#ttsBtn').textContent='▶ 繼續';return;}
+  if(speechSynthesis.paused){speechSynthesis.resume();$('#ttsBtn').textContent='⏸ 暫停';return;}ttsSpeak();}
+function ttsReplay(){if(ttsAvail())speechSynthesis.cancel();ttsSpeak();}
+function ttsRate(v){speechRate=+v;if(ttsAvail()&&speechSynthesis.speaking)ttsSpeak();}
+
+/* ============ 閱讀 ============ */
+function readTaskType(s){return s.taskType||(s._meta&&s._meta.taskType)||'academic';}
+function Read(){
+  if(!CONTENT.reading.length){$('#view').innerHTML='<div class="card">尚無閱讀題庫。</div>';return;}
+  const groups=[['academic','學術段落 Academic Passage'],['daily-life','日常生活 Read in Daily Life'],['complete-words','填字母 Complete the Words']];
+  let html='<div class="card"><h2>📖 閱讀練習</h2><p class="small mut">新制三任務型。學術段落已過難度閘門、對齊官方；日常生活與填字母為實用/詞彙練習。</p></div>';
+  for(const [key,label] of groups){
+    const items=CONTENT.reading.map((s,i)=>[s,i]).filter(([s])=>readTaskType(s)===key);
+    if(!items.length)continue;
+    html+=`<div class="card"><h2 class="small">${label}</h2>`+items.map(([s,i])=>{
+      if(key==='complete-words'){const n=(s.parts||[]).filter(p=>typeof p==='object').length;
+        return `<button class="opt" onclick="startComplete(${i})"><b>${esc(s.topic)}</b><div class="small mut">${n} 空格</div></button>`;}
+      return `<button class="opt" onclick="startRead(${i})"><b>${esc(s.topic)}</b> <span class="pill ${(s.targetCEFR==='C2')?'c2':'c1'} small">${esc(s.targetCEFR||'C1')}</span><div class="small mut">${(s.questions||[]).length} 題${key==='academic'?' · 六題型':''}</div></button>`;
+    }).join('')+`</div>`;
+  }
+  $('#view').innerHTML=html;
+}
+/* 填字母 Complete the Words */
+let cw=null;
+function startComplete(i){cw={set:CONTENT.reading[i],done:false,ans:[]};renderCW();}
+function renderCW(){
+  const set=cw.set; let bi=0;
+  const body=set.parts.map(p=>{
+    if(typeof p==='string')return esc(p);
+    const k=bi++, sz=Math.max(3,(p.a||'').length+1);
+    let cls='line';
+    if(cw.done){const v=((cw.ans[k]||'')+'').trim().toLowerCase(); cls=v===p.a.toLowerCase()?'good':'bad';}
+    return `<span style="white-space:nowrap">${esc(p.p)}<input id="cw${k}" value="${cw.done?esc(cw.ans[k]||''):''}" ${cw.done?'disabled':''} size="${sz}" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:${sz+1}ch;display:inline;padding:2px 4px;border-color:var(--${cls})"></span>`;
+  }).join('');
+  const total=set.parts.filter(p=>typeof p==='object').length;
+  $('#view').innerHTML=`<div class="card"><h2>🔤 ${esc(set.topic)}</h2>
+    <p class="small mut">${esc(set.instruction||'Fill in the missing letters.')}（只填缺少的字母，不分大小寫）</p>
+    <div class="passage" style="max-height:none;line-height:2.4">${body}</div>
+    ${cw.done?`<p style="margin-top:10px">答對 <b>${cw.correct}/${total}</b> · 估計 <b>${cw.band}</b> 分</p><button class="acc" onclick="go('read')">再選一篇</button> <button class="ghost" onclick="go('dash')">回總覽</button>`
+      :`<button class="acc" style="margin-top:10px" onclick="submitCW()">送出</button>`}
+  </div>`;
+}
+function submitCW(){
+  const set=cw.set; let bi=0, correct=0; const ans=[];
+  set.parts.forEach(p=>{if(typeof p==='object'){const el=$('#cw'+bi);const v=el?el.value:'';ans.push(v);if((v+'').trim().toLowerCase()===p.a.toLowerCase())correct++;bi++;}});
+  cw.ans=ans; cw.correct=correct; cw.band=rateToBand(correct/(ans.length||1)); cw.done=true;
+  S.log.push({t:Date.now(),type:'complete-words',correct,band:cw.band}); save(); renderCW();
+}
+function startRead(i){const set=CONTENT.reading[i];startQuiz(set,{mode:'practice',timed:true,onDone:r=>{
+  S.scores.reading=r.band;S.log.push({t:Date.now(),type:'read',correct:r.correct,band:r.band,secs:Q.secs});save();
+  $('#view').innerHTML=`<div class="card"><h2>閱讀完成</h2><p>答對 <b>${r.correct}/${r.total}</b> · 用時 ${fmt(Q.secs)} · 估計 <b>${r.band}</b> 分</p>
+    <p class="small mut">已更新總覽閱讀分。錯題請回看短文定位句、標記題型弱點。</p>
+    <button class="acc" onclick="go('read')">再選一篇</button> <button class="ghost" onclick="go('dash')">回總覽</button></div>`;}});}
+
+/* ============ 聽力 ============ */
+function Listen(){
+  if(!CONTENT.listening.length){$('#view').innerHTML='<div class="card"><h2>🎧 聽力</h2><p class="mut small">尚無聽力題庫（需本機 server / 部署以載入）。</p></div>';return;}
+  $('#view').innerHTML=`<div class="card"><h2>🎧 聽力練習</h2>
+    <p class="small mut">用瀏覽器語音合成朗讀講座/對話（無需音檔）。先聽一遍再作答；筆記只記結構詞與態度。</p>
+    ${CONTENT.listening.map((s,i)=>`<button class="opt" onclick="startListen(${i})"><b>${esc(s.topic)}</b> <span class="pill c1 small">${esc(s.targetCEFR||'C1')}</span><div class="small mut">${esc(s.type||'Academic Talk')} · ${s.questions.length} 題</div></button>`).join('')}
+  </div>`;
+}
+function startListen(i){const set=CONTENT.listening[i];startQuiz(set,{mode:'practice',timed:true,onDone:r=>{
+  if(ttsAvail())speechSynthesis.cancel();
+  S.scores.listening=r.band;S.log.push({t:Date.now(),type:'listen',correct:r.correct,band:r.band});save();
+  $('#view').innerHTML=`<div class="card"><h2>聽力完成</h2><p>答對 <b>${r.correct}/${r.total}</b> · 估計 <b>${r.band}</b> 分</p>
+    <button class="acc" onclick="go('listen')">再選一篇</button> <button class="ghost" onclick="go('dash')">回總覽</button></div>`;}});}
+
+/* ============ 診斷 ============ */
+let diagSelf={};
+function Diag(){
+  $('#view').innerHTML=`<div class="card"><h2>🩺 入學診斷</h2>
+    <p class="small mut">做一篇閱讀＋自評聽說寫，算出基準分與弱項排序，計畫據此調整。</p>
+    <button class="acc" onclick="startDiag()">開始診斷（閱讀）</button></div>`;
+}
+function startDiag(){diagSelf={};const set=CONTENT.reading[0]||FALLBACK_READING;startQuiz(set,{mode:'collect',onDone:r=>{diagSelf.reading=r.band;DiagSelf();}});}
+function DiagSelf(){
+  $('#view').innerHTML=`<div class="card"><h2>自評：聽 / 說 / 寫</h2>
+    <p class="small mut">閱讀已客觀計分（${diagSelf.reading}）。其餘先自評抓基準，之後用模考校準。</p>
+    ${['listening','speaking','writing'].map(k=>{const n={listening:'聽力',speaking:'口說',writing:'寫作'}[k];
+      return `<div style="margin:12px 0"><b>${n}</b><div class="row" style="margin-top:6px">${[3,3.5,4,4.5,5,5.5,6].map(v=>`<button class="ghost small" onclick="selfPick('${k}',${v},this)">${v}</button>`).join('')}</div></div>`;}).join('')}
+    <button class="acc" style="margin-top:10px" onclick="finishDiag()">完成診斷</button></div>`;
+}
+function selfPick(k,v,btn){diagSelf[k]=v;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('acc'));btn.classList.add('acc');}
+function finishDiag(){
+  S.scores.reading=diagSelf.reading;S.scores.listening=diagSelf.listening||4;S.scores.speaking=diagSelf.speaking||4;S.scores.writing=diagSelf.writing||4;S.diagDone=true;save();
+  const ov=overall(),weak=[...SECTIONS].sort((a,b)=>S.scores[a[0]]-S.scores[b[0]]);
+  $('#view').innerHTML=`<div class="card"><h2>診斷完成 ✅</h2><div class="big">${ov} <span class="mut small">/ 6.0</span></div>
+    <div class="scoregrid" style="margin:10px 0">${SECTIONS.map(([k,n])=>`<div class="s"><small>${n}</small><b>${S.scores[k]}</b></div>`).join('')}</div>
+    <p class="small"><b>弱項排序：</b> ${weak.map(([k,n])=>n+' '+S.scores[k]).join(' → ')}</p>
+    <p class="small mut">${ov>=TARGET?'起點很高，進入精修與穩定度。':ov>=4.5?'距 5.5 在衝刺範圍，全力補最弱兩科。':'起點偏低，建議延長地基，必要時誠實評估延考。'}</p>
+    <button class="acc" onclick="go('dash')">看總覽</button></div>`;
+}
+
+/* ============ 詞彙 SRS ============ */
+let vState=null;
+function Vocab(){
+  const due=VOCAB.filter(([w])=>(S.vocab[w]||0)<5);
+  const learned=VOCAB.filter(([w])=>(S.vocab[w]||0)>0).length,mastered=VOCAB.filter(([w])=>(S.vocab[w]||0)>=5).length;
+  if(!vState){$('#view').innerHTML=`<div class="card"><h2>🗂️ 學術詞彙 SRS</h2>
+    <p class="small mut">Leitner 五盒間隔複習：記得升盒、忘記回第一盒。共 ${VOCAB.length} 字。</p>
+    <div class="scoregrid" style="grid-template-columns:repeat(3,1fr)"><div class="s"><small>已學</small><b>${learned}</b></div><div class="s"><small>精熟</small><b class="good">${mastered}</b></div><div class="s"><small>待複習</small><b>${due.length}</b></div></div>
+    <button class="acc" style="margin-top:10px" ${due.length?'':'disabled'} onclick="startVocab()">${due.length?'開始複習':'今日清空 🎉'}</button></div>`;return;}
+  if(vState.i>=vState.list.length){vState=null;Vocab();return;}
+  const [w,def,ex]=vState.list[vState.i];
+  $('#view').innerHTML=`<div class="card" style="text-align:center">
+    <div class="small mut">${vState.i+1}/${vState.list.length} · box ${S.vocab[w]||0}</div>
+    <div style="font-size:28px;font-weight:700;margin:18px 0 8px">${w}</div>
+    <div id="vback" style="display:none"><div class="mut">${def}</div><div class="passage" style="text-align:left;margin-top:12px;max-height:none">${esc(ex)}</div></div>
+    <div id="vfront"><button class="acc" onclick="vShow()">顯示解釋</button></div>
+    <div id="vrate" class="row" style="display:none;justify-content:center;margin-top:14px"><button onclick="rateVocab('${w}',false)">😵 忘記</button><button class="acc" onclick="rateVocab('${w}',true)">😎 記得</button></div></div>`;
+}
+function vShow(){$('#vback').style.display='block';$('#vfront').style.display='none';$('#vrate').style.display='flex';}
+function startVocab(){const due=VOCAB.filter(([w])=>(S.vocab[w]||0)<5).sort((a,b)=>(S.vocab[a[0]]||0)-(S.vocab[b[0]]||0));vState={list:due.slice(0,12),i:0};Vocab();}
+function rateVocab(w,ok){const b=S.vocab[w]||0;S.vocab[w]=ok?Math.min(5,b+1):1;save();vState.i++;Vocab();}
+
+/* ============ 口說 ============ */
+let spState={idx:0},mediaRec=null,chunks=[],spTimer=null;
+function Speak(){
+  const idx=spState.idx||0,p=SPEAK_PROMPTS[idx];
+  $('#view').innerHTML=`<div class="card"><div class="flex-between"><h2 style="margin:0">🎙️ 口說</h2>
+    <select onchange="spState={idx:+this.value};Speak()">${SPEAK_PROMPTS.map((x,i)=>`<option value="${i}" ${i===idx?'selected':''}>題 ${i+1} · ${x.type}</option>`).join('')}</select></div>
+    <p class="small mut">準備 ${p.prep}s · 回答 ${p.talk}s · 構思 → 錄音 → 對 rubric 自評 → 重錄。</p>
+    <div class="passage" style="max-height:none">${esc(p.q)}</div>
+    <div class="flex-between" style="margin:12px 0 6px"><span class="timer" id="spTimer" style="font-size:22px">${p.talk}s</span><span class="small mut" id="spPhase">就緒</span></div>
+    <div class="row"><button class="acc" id="spStart" onclick="spBegin(${p.prep},${p.talk})">開始</button><button class="ghost" id="spStop" onclick="spStop()" disabled>停止</button></div>
+    <div id="spAudio"></div>
+    <details style="margin-top:14px"><summary>口說 rubric 自評（勾選→估分）</summary>${rubric(['流暢少卡頓','發音清楚','文法多樣大致正確','用詞精準(含學術字)','回答完整切題','結構清楚(立場→理由→例子)'],'sp')}</details></div>`;
+}
+function rubric(items,ns){return items.map((t,i)=>`<label class="chk"><input type="checkbox" onchange="rubScore('${ns}')"> ${t}</label>`).join('')+`<div id="${ns}Band" class="small" style="margin-top:6px"></div>`;}
+function rubScore(ns){const boxes=document.querySelectorAll('#view details input[type=checkbox]');const c=[...boxes].filter(b=>b.checked).length,band=chkToBand(c,boxes.length);
+  const key=ns==='sp'?'speaking':'writing';$('#'+ns+'Band').innerHTML=`勾 ${c}/${boxes.length} → 估 <b>${band}</b> 分　<button class="ghost small" onclick="S.scores.${key}=${band};save();alert('已更新${ns==='sp'?'口說':'寫作'} = ${band}')">套用總覽</button>`;}
+function spBegin(prep,talk){$('#spStart').disabled=true;$('#spStop').disabled=false;let phase='prep',left=prep;$('#spPhase').textContent='構思中…';
+  const tick=()=>{if(phase==='prep'){$('#spTimer').textContent='構思 '+left+'s';if(left--<=0){phase='talk';left=talk;$('#spPhase').textContent='錄音中 ●';startRec();}}else{$('#spTimer').textContent=left+'s';if(left--<=0){spStop();return;}}};
+  tick();clearInterval(spTimer);spTimer=setInterval(tick,1000);}
+async function startRec(){try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});mediaRec=new MediaRecorder(stream);chunks=[];
+  mediaRec.ondataavailable=e=>chunks.push(e.data);mediaRec.onstop=()=>{const blob=new Blob(chunks,{type:'audio/webm'});$('#spAudio').innerHTML='<audio controls src="'+URL.createObjectURL(blob)+'"></audio>';stream.getTracks().forEach(t=>t.stop());};
+  mediaRec.start();}catch(e){const el=$('#spAudio');if(el)el.innerHTML='<p class="small bad">無法錄音：'+esc(e.message)+'（請允許麥克風）</p>';}}
+function spStop(){clearInterval(spTimer);const p=$('#spPhase');if(p)p.textContent='完成';const a=$('#spStart'),b=$('#spStop');if(a)a.disabled=false;if(b)b.disabled=true;if(mediaRec&&mediaRec.state!=='inactive')mediaRec.stop();}
+
+/* ============ 寫作 ============ */
+let wTimer=null,wLeft=0,wIdx=0;
+function Write(){
+  const p=WRITE_PROMPTS[wIdx];
+  $('#view').innerHTML=`<div class="card"><div class="flex-between"><h2 style="margin:0">✍️ 寫作</h2>
+    <select onchange="wIdx=+this.value;Write()">${WRITE_PROMPTS.map((x,i)=>`<option value="${i}" ${i===wIdx?'selected':''}>${x.type}</option>`).join('')}</select></div>
+    <p class="small mut">建議 ${p.min} 分鐘 · 目標 ${p.words}+ 字</p>
+    <div class="passage" style="max-height:36vh">${esc(p.q).replace(/\n/g,'<br>')}</div>
+    <div class="flex-between" style="margin:10px 0 4px"><button class="ghost small" id="wTimerBtn" onclick="wToggle(${p.min})">▶ 計時 ${p.min}:00</button><span class="small mut"><span id="wCount">0</span> 字</span></div>
+    <textarea id="wText" rows="9" placeholder="在此作答…" oninput="wCount()"></textarea>
+    <details style="margin-top:12px"><summary>寫作 rubric 自檢（勾選→估分）</summary>${rubric(['切題完整','立場清楚論點有發展','段落組織連貫(連接詞)','用詞精準多樣(學術字)','文法句構多樣少錯','達到目標字數'],'w')}</details>
+    <div class="card" style="background:var(--card2);margin-top:12px"><b class="small">🤖 AI 批改（本機 claude -p）</b>
+      <p class="small mut">產生可貼到終端機的 prompt，依官方 rubric 回 1–6 分＋三條修改建議。</p>
+      <button onclick="wAI()">產生批改 prompt</button><textarea id="wAIout" rows="4" style="margin-top:8px;display:none"></textarea></div></div>`;
+}
+function wCount(){const t=($('#wText').value||'').trim();$('#wCount').textContent=t?t.split(/\s+/).length:0;}
+function wToggle(min){if(wTimer){clearInterval(wTimer);wTimer=null;$('#wTimerBtn').textContent='▶ 繼續';return;}if(!wLeft)wLeft=min*60;
+  wTimer=setInterval(()=>{wLeft--;$('#wTimerBtn').textContent='⏸ '+fmt(wLeft);if(wLeft<=0){clearInterval(wTimer);wTimer=null;$('#wTimerBtn').textContent='⏰ 時間到';}},1000);}
+function wAI(){const p=WRITE_PROMPTS[wIdx],essay=($('#wText').value||'').trim();
+  const prompt=`You are an ETS-trained TOEFL iBT (2026, 1–6 band) writing rater.\nTask: ${p.type}.\nPrompt:\n${p.q}\n\nStudent response:\n"""${essay||'(尚未作答)'}"""\n\nGrade on the 1–6 scale (0.5 steps), CEFR-aligned (5.0=C1). Give: (1) band, (2) one strength, (3) three specific actionable fixes, (4) one rewritten model sentence. Be concise.`;
+  const el=$('#wAIout');el.style.display='block';el.value='claude -p '+JSON.stringify(prompt);el.select();try{navigator.clipboard.writeText(el.value);}catch(e){}}
+
+/* ============ 模考 R→L→W→S ============ */
+let mock=null;
+function MockIntro(){
+  $('#view').innerHTML=`<div class="card"><h2>📝 全真模考</h2>
+    <p class="small mut">依新制順序 閱讀 → 聽力 → 寫作 → 口說，各一節，最後輸出四科 1–6 與總分並存入紀錄。閱讀/聽力為 collect 模式（不即時對答案）。</p>
+    <p class="small mut">提醒：自製題堆量練手感，真正分數請以官方錨定為準（題源中心）。</p>
+    <button class="acc" ${CONTENT.reading.length&&CONTENT.listening.length?'':'disabled'} onclick="mockStart()">開始模考</button>
+    ${(!CONTENT.reading.length||!CONTENT.listening.length)?'<p class="small bad">需載入閱讀與聽力題庫（本機 server / 部署）。</p>':''}</div>`;
+}
+function mockStart(){mock={res:{},t:Date.now()};mockNext('reading');}
+function mockNext(stage){
+  if(stage==='reading'){startQuiz(CONTENT.reading[0],{mode:'collect',timed:true,onDone:r=>{mock.res.reading=r.band;mockNext('listening');}});return;}
+  if(stage==='listening'){startQuiz(CONTENT.listening[0],{mode:'collect',timed:true,onDone:r=>{if(ttsAvail())speechSynthesis.cancel();mock.res.listening=r.band;mockNext('writing');}});return;}
+  if(stage==='writing'){mockWrite();return;}
+  if(stage==='speaking'){mockSpeak();return;}
+  if(stage==='result'){mockResult();return;}
+}
+function mockWrite(){const p=WRITE_PROMPTS[0];
+  $('#view').innerHTML=`<div class="card"><h2>模考 · 寫作</h2><div class="passage" style="max-height:30vh">${esc(p.q).replace(/\n/g,'<br>')}</div>
+    <textarea id="wText" rows="7" placeholder="作答…" style="margin-top:8px"></textarea>
+    <details style="margin-top:10px" open><summary>寫完後自評</summary>${rubric(['切題完整','立場清楚論點有發展','段落組織連貫','用詞精準多樣','文法句構多樣少錯','達到字數'],'w')}</details>
+    <button class="acc" style="margin-top:10px" onclick="mockGrade('writing')">完成此科 → 口說</button></div>`;
+}
+function mockSpeak(){const p=SPEAK_PROMPTS[0];
+  $('#view').innerHTML=`<div class="card"><h2>模考 · 口說</h2><div class="passage" style="max-height:none">${esc(p.q)}</div>
+    <div class="row" style="margin:10px 0"><button class="acc" id="spStart" onclick="spBegin(${p.prep},${p.talk})">開始錄音</button><button class="ghost" id="spStop" onclick="spStop()" disabled>停止</button></div>
+    <span class="timer" id="spTimer"></span> <span class="small mut" id="spPhase"></span><div id="spAudio"></div>
+    <details style="margin-top:10px" open><summary>錄完後自評</summary>${rubric(['流暢少卡頓','發音清楚','文法多樣','用詞精準','完整切題','結構清楚'],'sp')}</details>
+    <button class="acc" style="margin-top:10px" onclick="mockGrade('speaking')">完成此科 → 結算</button></div>`;
+}
+function mockGrade(section){const boxes=document.querySelectorAll('#view details input[type=checkbox]');const c=[...boxes].filter(b=>b.checked).length;mock.res[section]=chkToBand(c,boxes.length);
+  if(section==='writing')mockNext('speaking');else mockNext('result');}
+function mockResult(){const r=mock.res,avg=Math.round((r.reading+r.listening+r.speaking+r.writing)/4*2)/2;
+  S.scores={reading:r.reading,listening:r.listening,speaking:r.speaking,writing:r.writing};
+  S.history.push({t:Date.now(),type:'mock',res:r,overall:avg});save();
+  $('#view').innerHTML=`<div class="card"><h2>模考結算 ✅</h2><div class="big">${avg} <span class="mut small">/ 6.0</span></div>
+    <div class="scoregrid" style="margin:10px 0">${SECTIONS.map(([k,n])=>`<div class="s"><small>${n}</small><b>${r[k]}</b></div>`).join('')}</div>
+    <p class="small mut">${avg>=TARGET?'達標！維持穩定度。':'距 5.5 差 '+(TARGET-avg).toFixed(1)+'，補最弱科。'}已存入模考紀錄並更新總覽。</p>
+    <p class="small mut">下一步去「題源中心」做一回官方樣題，校準我的難度是否對齊。</p>
+    <button class="acc" onclick="go('dash')">回總覽</button> <button class="ghost" onclick="go('res')">官方校準</button></div>`;
+}
+
+/* ============ 啟動 ============ */
+function boot(){loadContent().then(()=>{render();});}
+if(typeof document!=='undefined'&&document.getElementById('view'))boot();
+if(typeof navigator!=='undefined'&&'serviceWorker'in navigator&&typeof location!=='undefined'&&location.protocol.indexOf('http')===0){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
