@@ -1,5 +1,5 @@
 /* TOEFL 2026 SW（單檔部署版）— 改版時 CACHE +1 */
-const CACHE='toefl2026-v6';
+const CACHE='toefl2026-v7';
 const CORE=['./','index.html','manifest.json','icon.svg'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()).catch(()=>{}));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
