@@ -156,8 +156,9 @@ let CONTENT={reading:[],listening:[],writing:[],speaking:[],vocab:[],resources:{
 let S=load();
 
 /* ============ 狀態 ============ */
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d)return Object.assign({scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false},d);}catch(e){}
- return {scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false};}
+function load(){const D=()=>({scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false,cal:{reading:[],listening:[],speaking:[],writing:[]}});
+ try{const d=JSON.parse(localStorage.getItem(KEY));if(d){const m=Object.assign(D(),d);m.cal=Object.assign({reading:[],listening:[],speaking:[],writing:[]},d.cal||{});return m;}}catch(e){}
+ return D();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
 /* ============ 工具 ============ */
@@ -165,6 +166,20 @@ const $=s=>document.querySelector(s);
 function daysSince(d){return Math.floor((Date.now()-new Date(d+'T00:00:00').getTime())/86400000);}
 function curWeek(){return Math.min(8,Math.max(1,Math.floor(daysSince(PLAN_START)/7)+1));}
 function overall(){const v=SECTIONS.map(([k])=>S.scores[k]).filter(x=>x!=null);if(v.length<4)return null;return Math.round(v.reduce((a,b)=>a+b,0)/4*2)/2;}
+/* ===== 官方校準（poor man's equating）：原始估計存 S.scores，校準只在顯示層套用 ===== */
+function clampB(b){if(b==null)return null;return Math.round(Math.max(1,Math.min(6,b))*2)/2;}
+function calMap(sec,raw){const pts=(S.cal&&S.cal[sec])||[];
+  if(raw==null)return {band:null,conf:pts.length};
+  if(!pts.length)return {band:clampB(raw),conf:0};
+  if(pts.length<3){const off=pts.reduce((s,p)=>s+(p.official-p.app),0)/pts.length;return {band:clampB(raw+off),conf:pts.length};}
+  const n=pts.length,sx=pts.reduce((s,p)=>s+p.app,0),sy=pts.reduce((s,p)=>s+p.official,0),sxx=pts.reduce((s,p)=>s+p.app*p.app,0),sxy=pts.reduce((s,p)=>s+p.app*p.official,0),den=n*sxx-sx*sx;
+  if(Math.abs(den)<1e-9){const off=(sy-sx)/n;return {band:clampB(raw+off),conf:n};}
+  const a=(n*sxy-sx*sy)/den,b=(sy-a*sx)/n;return {band:clampB(a*raw+b),conf:n};}
+function calBand(sec){return calMap(sec,S.scores[sec]).band;}
+function calConf(sec){return ((S.cal&&S.cal[sec])||[]).length;}
+function overallCal(){const v=SECTIONS.map(([k])=>calBand(k)).filter(x=>x!=null);if(v.length<4)return null;return Math.round(v.reduce((a,b)=>a+b,0)/4*2)/2;}
+function anyCal(){return SECTIONS.some(([k])=>calConf(k)>0);}
+function calPill(sec){const c=calConf(sec);return c?`<span class="pill ok small" title="已用 ${c} 次官方對照校準">校準×${c}</span>`:`<span class="pill gap small" title="未經官方校準，為估計值">估計</span>`;}
 function rateToBand(p){if(p>=0.95)return 6;if(p>=0.85)return 5.5;if(p>=0.72)return 5;if(p>=0.58)return 4.5;if(p>=0.45)return 4;if(p>=0.32)return 3.5;if(p>=0.2)return 3;return 2.5;}
 function chkToBand(c,t){const p=c/t;if(p>=1)return 6;if(p>=0.85)return 5.5;if(p>=0.7)return 5;if(p>=0.5)return 4.5;if(p>=0.34)return 4;if(p>0)return 3.5;return 3;}
 function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
@@ -199,13 +214,17 @@ async function loadContent(){
 let TAB='dash';
 function go(tab){TAB=tab;document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));render();try{window.scrollTo(0,0);}catch(e){}}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
-function render(){({dash:Dash,read:Read,listen:Listen,vocab:Vocab,speak:Speak,write:Write,diag:Diag,mock:MockIntro,res:Resources}[TAB]||Dash)();}
+function render(){({dash:Dash,read:Read,listen:Listen,vocab:Vocab,speak:Speak,write:Write,diag:Diag,mock:MockIntro,res:Resources,calib:Calib}[TAB]||Dash)();}
 
 /* ============ 總覽 ============ */
 function Dash(){
-  const wk=curWeek(),ov=overall(),W=WEEKS[wk-1];
+  const wk=curWeek(),ov=overallCal(),W=WEEKS[wk-1];
   const gap=ov==null?null:Math.max(0,(TARGET-ov)).toFixed(1);
-  const sc=SECTIONS.map(([k,n])=>{const v=S.scores[k];return `<div class="s"><small>${n}</small><b style="color:${v==null?'var(--mut)':v>=5.5?'var(--good)':v>=5?'var(--txt)':'var(--warn)'}">${v==null?'—':v}</b></div>`;}).join('');
+  const sc=SECTIONS.map(([k,n])=>{const v=calBand(k);return `<div class="s"><small>${n} ${calPill(k)}</small><b style="color:${v==null?'var(--mut)':v>=5.5?'var(--good)':v>=5?'var(--txt)':'var(--warn)'}">${v==null?'—':v}</b></div>`;}).join('');
+  const calibrated=anyCal();
+  const statusLine=calibrated
+    ? `<span class="pill ok small">已校準</span> 分數已用官方對照校準（各科信心見上方標籤）。`
+    : `<span class="pill gap small">估計·未校準</span> 目前所有分數皆為<b>系統估計值</b>，尚未對任何官方成績校準——可能與真考有落差。做一次官方模考後到「🎯 官方校準」輸入真實分即可校準。`;
   const tasks=W.tasks.map((t,i)=>{const id=`${wk}-${i}`,done=S.done[id];return `<li class="${done?'done':''}"><span class="dot"></span><span style="flex:1">${t}</span><button class="ghost small" onclick="toggleTask('${id}')">${done?'↺':'✓'}</button></li>`;}).join('');
   const wkDone=W.tasks.filter((_,i)=>S.done[`${wk}-${i}`]).length;
   $('#hdrSub').textContent=`第 ${wk}/8 週 · ${W.t} · 目標 ${TARGET}`;
@@ -215,12 +234,14 @@ function Dash(){
        ${ov==null?'<span class="pill gap">尚未集滿四科</span>':(ov>=TARGET?'<span class="pill ok">已達標 🎯</span>':`<span class="pill gap">距 ${TARGET} 差 ${gap}</span>`)}</div>
      <div class="big" style="margin:8px 0">${ov==null?'—':ov}<span class="mut" style="font-size:14px"> / 6.0</span></div>
      <div class="scoregrid">${sc}</div>
-     <p class="small mut" style="margin:10px 0 0">四科任一掉到 5.0 以下都會拉低平均；先補最弱科。${CONTENT.error?'<br><span class="bad">內容離線（'+esc(CONTENT.error)+'）：請用本機 server 或部署後開啟以載入完整題庫。</span>':''}</p>
+     <p class="small mut" style="margin:10px 0 0">${statusLine}</p>
+     <p class="small mut" style="margin:6px 0 0">四科任一掉到 5.0 以下都會拉低平均；先補最弱科。${CONTENT.error?'<br><span class="bad">內容離線（'+esc(CONTENT.error)+'）：請用本機 server 或部署後開啟以載入完整題庫。</span>':''}</p>
    </div>
    <div class="card">
      <div class="row">
        <button class="acc" onclick="go('diag')">🩺 診斷</button>
        <button onclick="go('mock')">📝 全真模考</button>
+       <button class="${calibrated?'':'acc'}" onclick="go('calib')">🎯 官方校準</button>
        <button onclick="go('res')">🌐 題源中心（官方）</button>
        <button class="ghost" onclick="exportData()">匯出進度</button>
      </div>
@@ -237,6 +258,41 @@ function Dash(){
 }
 function toggleTask(id){S.done[id]=!S.done[id];save();Dash();}
 function exportData(){try{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='toefl2026_progress.json';a.click();}catch(e){alert('匯出失敗：'+e.message);}}
+
+/* ============ 官方校準頁 ============ */
+const BANDVALS=[1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6];
+function bandSelect(id){return `<select id="${id}"><option value="">—</option>${BANDVALS.map(v=>`<option value="${v}">${v}</option>`).join('')}</select>`;}
+function Calib(){
+  const offTxt=sec=>{const pts=(S.cal&&S.cal[sec])||[];if(!pts.length)return '<span class="mut">未校準</span>';const off=pts.reduce((s,p)=>s+(p.official-p.app),0)/pts.length;return `${pts.length} 點｜平均偏移 ${off>=0?'+':''}${off.toFixed(2)}${pts.length>=3?'（已用線性擬合）':''}　估計 ${S.scores[sec]==null?'—':S.scores[sec]} → 校準 ${calBand(sec)==null?'—':calBand(sec)}`;};
+  const rows=SECTIONS.map(([k,n])=>`<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--line)">
+    <div style="flex:1"><b>${n}</b> ${calPill(k)}<div class="small mut" style="margin-top:2px">App 估計 ${S.scores[k]==null?'<span class="bad">—（先練此科）</span>':S.scores[k]}｜${offTxt(k)}</div></div>
+    <div class="small" style="white-space:nowrap">官方分 ${bandSelect('cal_'+k)}</div></div>`).join('');
+  const hist=[];SECTIONS.forEach(([k,n])=>((S.cal&&S.cal[k])||[]).forEach(p=>hist.push({n,t:p.t,app:p.app,official:p.official})));
+  hist.sort((a,b)=>b.t-a.t);
+  $('#view').innerHTML=`<div class="card"><h2>🎯 官方校準 <span class="small mut">poor man's equating</span></h2>
+    <p class="small mut">本 App 分數是<b>估計值</b>（rate→band 門檻為設計值，未經官方真人預試 IRT）。做一份<b>官方</b> ETS 模考、填入真實 band，App 就用「官方分 vs App 同期估計」校準：<b>1–2 點</b>用平均偏移、<b>≥3 點</b>用最小平方線性擬合。這是把估計接上現實的唯一誠實做法。</p>
+    <div class="card" style="background:var(--card2)"><b class="small">步驟</b>
+      <p class="small mut" style="margin:6px 0 0">① 到題源中心做官方 ETS 免費模考（新制 1–6）。② 逐科填官方 band（下方已列你近期 App 估計供配對；缺估計的科請先在本 App 練過）。③ 送出更新校準。</p>
+      <button class="acc" style="margin-top:8px" onclick="go('res')">前往題源中心</button></div>
+    <div style="margin-top:12px">${rows}</div>
+    <button class="acc" style="margin-top:12px" onclick="calSubmit()">送出官方成績並校準</button>
+    <div id="calMsg" class="small" style="margin-top:8px"></div>
+    <details class="small" style="margin-top:12px"><summary>校準紀錄（${hist.length}）</summary>${hist.length?hist.map(h=>`<p class="mut" style="margin:4px 0">${new Date(h.t).toISOString().slice(0,10)} · ${h.n}：App ${h.app} → 官方 ${h.official}</p>`).join(''):'<p class="mut">尚無紀錄</p>'}</details>
+    <p class="small mut" style="margin:10px 0 0">⚠ 誠實限制：單次官方測驗也有測量誤差，<b>1 點＝低信心</b>；多做幾次校準才穩。校準對齊的是過去官方分，仍無法保證未來表現。</p>
+    <button class="ghost" style="margin-top:10px" onclick="go('dash')">回總覽</button></div>`;
+}
+function calSubmit(){
+  let added=0;const skip=[];
+  SECTIONS.forEach(([k,n])=>{const el=document.getElementById('cal_'+k);const off=el&&el.value?+el.value:null;const app=S.scores[k];
+    if(off==null)return;
+    if(app==null){skip.push(n);return;}
+    S.cal[k].push({t:Date.now(),app,official:off});added++;});
+  save();
+  const msg=$('#calMsg');let t=added?`✅ 已記錄 ${added} 科並更新校準（總覽分數已套用）。`:'未記錄（請至少選一科官方分）。';
+  if(skip.length)t+=` ⚠ ${skip.join('、')} 尚無 App 估計、無法配對，請先在本 App 練該科再校準。`;
+  if(msg){msg.innerHTML=t;msg.className='small '+(added?'good':'mut');}
+  if(added)setTimeout(Calib,1400);
+}
 
 /* ============ 題源中心 ============ */
 function Resources(){
@@ -464,7 +520,8 @@ function finishDiag(){
     <div class="scoregrid" style="margin:10px 0">${SECTIONS.map(([k,n])=>`<div class="s"><small>${n}</small><b>${S.scores[k]}</b></div>`).join('')}</div>
     <p class="small"><b>弱項排序：</b> ${weak.map(([k,n])=>n+' '+S.scores[k]).join(' → ')}</p>
     <p class="small mut">${ov>=TARGET?'起點很高，進入精修與穩定度。':ov>=4.5?'距 5.5 在衝刺範圍，全力補最弱兩科。':'起點偏低，建議延長地基，必要時誠實評估延考。'}</p>
-    <button class="acc" onclick="go('dash')">看總覽</button></div>`;
+    <p class="small mut">${anyCal()?'（分數已套用官方校準）':'⚠ 以上為<b>估計值</b>，未經官方校準；做一份官方模考後到「🎯 官方校準」可對齊真實分。'}</p>
+    <button class="acc" onclick="go('dash')">看總覽</button> <button class="ghost" onclick="go('calib')">🎯 官方校準</button></div>`;
 }
 
 /* ============ 詞彙 SRS ============ */
@@ -719,8 +776,8 @@ function mockResult(){const r=mock.res,avg=Math.round((r.reading+r.listening+r.s
   $('#view').innerHTML=`<div class="card"><h2>模考結算 ✅</h2><div class="big">${avg} <span class="mut small">/ 6.0</span></div>
     <div class="scoregrid" style="margin:10px 0">${SECTIONS.map(([k,n])=>`<div class="s"><small>${n}</small><b>${r[k]}</b></div>`).join('')}</div>
     <p class="small mut">${avg>=TARGET?'達標！維持穩定度。':'距 5.5 差 '+(TARGET-avg).toFixed(1)+'，補最弱科。'}已存入模考紀錄並更新總覽。</p>
-    <p class="small mut">下一步去「題源中心」做一回官方樣題，校準我的難度是否對齊。</p>
-    <button class="acc" onclick="go('dash')">回總覽</button> <button class="ghost" onclick="go('res')">官方校準</button></div>`;
+    <p class="small mut">${anyCal()?'（分數已套用官方校準）':'⚠ 此為<b>估計值</b>，未經官方校準。做一份官方模考後到「🎯 官方校準」輸入真實分即可對齊。'}</p>
+    <button class="acc" onclick="go('dash')">回總覽</button> <button class="ghost" onclick="go('calib')">🎯 官方校準</button></div>`;
 }
 
 /* ============ 啟動 ============ */
