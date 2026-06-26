@@ -156,7 +156,7 @@ let CONTENT={reading:[],listening:[],writing:[],speaking:[],vocab:[],resources:{
 let S=load();
 
 /* ============ 狀態 ============ */
-function load(){const D=()=>({scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false,cal:{reading:[],listening:[],speaking:[],writing:[]}});
+function load(){const D=()=>({scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false,cal:{reading:[],listening:[],speaking:[],writing:[]},stats:{},errors:[]});
  try{const d=JSON.parse(localStorage.getItem(KEY));if(d){const m=Object.assign(D(),d);m.cal=Object.assign({reading:[],listening:[],speaking:[],writing:[]},d.cal||{});return m;}}catch(e){}
  return D();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -214,7 +214,7 @@ async function loadContent(){
 let TAB='dash';
 function go(tab){TAB=tab;document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));render();try{window.scrollTo(0,0);}catch(e){}}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
-function render(){({dash:Dash,read:Read,listen:Listen,vocab:Vocab,speak:Speak,write:Write,diag:Diag,mock:MockIntro,res:Resources,calib:Calib}[TAB]||Dash)();}
+function render(){({dash:Dash,read:Read,listen:Listen,vocab:Vocab,speak:Speak,write:Write,diag:Diag,mock:MockIntro,res:Resources,calib:Calib,insights:Insights,errors:Errors}[TAB]||Dash)();}
 
 /* ============ 總覽 ============ */
 function Dash(){
@@ -234,6 +234,7 @@ function Dash(){
        ${ov==null?'<span class="pill gap">尚未集滿四科</span>':(ov>=TARGET?'<span class="pill ok">已達標 🎯</span>':`<span class="pill gap">距 ${TARGET} 差 ${gap}</span>`)}</div>
      <div class="big" style="margin:8px 0">${ov==null?'—':ov}<span class="mut" style="font-size:14px"> / 6.0</span></div>
      <div class="scoregrid">${sc}</div>
+     ${(()=>{const w=weakest(),en=(S.errors||[]).length;if(!w&&!en)return '';return `<p class="small" style="margin:10px 0 0"><span class="pill gap small">最弱</span> ${w?esc(w.label)+' '+Math.round(w.acc*100)+'%':'資料不足'}${en?'｜錯題 '+en+' 題':''} <button class="ghost small" onclick="go('insights')">→ 學習分析</button></p>`;})()}
      <p class="small mut" style="margin:10px 0 0">${statusLine}</p>
      <p class="small mut" style="margin:6px 0 0">四科任一掉到 5.0 以下都會拉低平均；先補最弱科。${CONTENT.error?'<br><span class="bad">內容離線（'+esc(CONTENT.error)+'）：請用本機 server 或部署後開啟以載入完整題庫。</span>':''}</p>
    </div>
@@ -241,6 +242,7 @@ function Dash(){
      <div class="row">
        <button class="acc" onclick="go('diag')">🩺 診斷</button>
        <button onclick="go('mock')">📝 全真模考</button>
+       <button onclick="go('insights')">📈 學習分析</button>
        <button class="${calibrated?'':'acc'}" onclick="go('calib')">🎯 官方校準</button>
        <button onclick="go('res')">🌐 題源中心（官方）</button>
        <button class="ghost" onclick="exportData()">匯出進度</button>
@@ -293,6 +295,67 @@ function calSubmit(){
   if(msg){msg.innerHTML=t;msg.className='small '+(added?'good':'mut');}
   if(added)setTimeout(Calib,1400);
 }
+
+/* ============ 學習分析（A 學習迴路：弱項追蹤＋處方＋曲線＋錯題本）============ */
+const TYPE_LABEL={'factual-information':'事實定位','inference':'推論','vocabulary':'詞義','sentence-simplification':'句子簡化','insert-text':'插入句','prose-summary':'摘要','gist':'主旨','gist-purpose':'主旨/目的','detail':'細節','function':'功能/態度','語用回應':'語用回應'};
+const SEC_LABEL={reading:'閱讀',listening:'聽力','句構':'句構'};
+function skillRows(){const out=[],st=S.stats||{};for(const k in st){const i=k.indexOf(':'),sec=k.slice(0,i),t=k.slice(i+1),e=st[k];out.push({sec,t,label:(SEC_LABEL[sec]||sec)+'·'+(TYPE_LABEL[t]||t),n:e.n,acc:e.n?e.c/e.n:0});}return out;}
+function weakest(){const e=skillRows().filter(r=>r.n>=4).sort((a,b)=>a.acc-b.acc);return e[0]||null;}
+function ansText(raw){if(raw.positions)return raw.answer+'：'+raw.positions[raw.answer];if(Array.isArray(raw.answer))return raw.answer.map(i=>raw.options[i]).join(' ／ ');if(raw.options&&typeof raw.answer==='number')return String.fromCharCode(65+raw.answer)+'. '+raw.options[raw.answer];return ''+raw.answer;}
+function sparkline(vals){if(!vals.length)return '<span class="mut small">尚無資料</span>';const n=vals.length,w=Math.max(80,n*16),h=38,X=i=>n<=1?0:i/(n-1)*w,Y=v=>h-((Math.max(1,Math.min(6,v))-1)/5)*h;const ln=vals.map((v,i)=>X(i)+','+Y(v).toFixed(1)).join(' ');return `<svg width="${w}" height="${h}">${n>1?`<polyline points="${ln}" fill="none" stroke="var(--acc)" stroke-width="2"/>`:''}${vals.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v).toFixed(1)}" r="2.5" fill="var(--good)"/>`).join('')}</svg>`;}
+function Insights(){
+  const rows=skillRows(),enough=rows.filter(r=>r.n>=4).sort((a,b)=>a.acc-b.acc),thin=rows.filter(r=>r.n<4);
+  const bandLogs=(S.log||[]).filter(l=>typeof l.band==='number').slice(-20).map(l=>l.band);
+  const vMast=Object.values(S.vocab||{}).filter(b=>b>=5).length,vStuck=Object.values(S.vocab||{}).filter(b=>b<=1).length,errN=(S.errors||[]).length;
+  const bar=r=>{const p=Math.round(r.acc*100),col=r.acc>=0.8?'var(--good)':r.acc>=0.6?'var(--warn)':'var(--bad)';return `<div style="padding:6px 0"><div class="flex-between small"><span>${esc(r.label)} <span class="mut">n=${r.n}</span></span><b style="color:${col}">${p}%</b></div><div class="bar"><i style="width:${p}%;background:${col}"></i></div></div>`;};
+  const rx=[];enough.filter(r=>r.acc<0.85).slice(0,3).forEach(r=>{const where=r.sec==='句構'?'去 Build a Sentence 練「'+r.t+'」':r.sec==='listening'?'去聽力專練「'+(TYPE_LABEL[r.t]||r.t)+'」':'去閱讀專練「'+(TYPE_LABEL[r.t]||r.t)+'」';rx.push(`${esc(r.label)} ${Math.round(r.acc*100)}%(n=${r.n})：${esc(where)}`);});
+  if(errN)rx.push(`錯題本 ${errN} 題待清：做「錯題快閃複習」`);
+  if(vStuck)rx.push(`詞彙 ${vStuck} 個卡在第一盒：去詞彙複習`);
+  $('#view').innerHTML=`<div class="card"><h2>📈 學習分析</h2>
+    <p class="small mut">以下是你各技能的<b>相對</b>強弱（依作答正確率），用來分配練習；與絕對分數的官方校準是兩回事。n 小者信心低。涵蓋客觀計分的閱讀/聽力/句構/詞彙（寫作口說靠 rubric 自評，不在此）。</p></div>
+   <div class="card"><h2 class="small">🩹 個人化處方</h2>
+    ${rx.length?`<ul style="margin:0;padding-left:18px">${rx.map(x=>`<li class="small" style="margin:4px 0">${x}</li>`).join('')}</ul>`:'<p class="small mut">資料還不夠（各技能需 ≥4 題）。先多做幾篇練習再回來看。</p>'}
+    <button class="acc" style="margin-top:10px" onclick="go('errors')">📕 錯題本（${errN}）</button></div>
+   <div class="card"><h2 class="small">弱項排序（正確率，弱→強）</h2>
+    ${enough.length?enough.map(bar).join(''):'<p class="small mut">尚無足量資料（各技能需 ≥4 題）。</p>'}
+    ${thin.length?`<details class="small" style="margin-top:8px"><summary>資料不足（n&lt;4，${thin.length} 項）</summary>${thin.map(r=>`<p class="mut" style="margin:3px 0">${esc(r.label)} ${Math.round(r.acc*100)}% (n=${r.n})</p>`).join('')}</details>`:''}</div>
+   <div class="card"><h2 class="small">學習曲線（近 ${bandLogs.length} 次估計 band）</h2>
+    ${sparkline(bandLogs)}
+    <div class="scoregrid" style="grid-template-columns:repeat(3,1fr);margin-top:10px"><div class="s"><small>總作答次數</small><b>${(S.log||[]).length}</b></div><div class="s"><small>詞彙精熟</small><b class="good">${vMast}</b></div><div class="s"><small>詞彙待加強</small><b>${vStuck}</b></div></div></div>
+   <button class="ghost" style="margin-top:4px" onclick="go('dash')">回總覽</button>`;
+}
+function Errors(){
+  const errs=S.errors||[];
+  $('#view').innerHTML=`<div class="card"><div class="flex-between"><h2 style="margin:0">📕 錯題本</h2><button class="ghost small" onclick="go('insights')">← 學習分析</button></div>
+    <p class="small mut">答錯的題目存在這裡（最多 80）。做「錯題快閃複習」自評，答對就移除＝間隔重練。</p>
+    ${errs.length?`<button class="acc" onclick="startErrRev()">⚡ 錯題快閃複習（${errs.length}）</button> <button class="ghost" onclick="clearErrs()">清空</button>`:'<p class="small good">目前沒有錯題 🎉</p>'}</div>
+   ${errs.map(e=>`<div class="card" style="padding:12px"><span class="tag">${esc((SEC_LABEL[e.sec]||e.sec)+'·'+(TYPE_LABEL[e.type]||e.type))}</span>
+     <p style="font-weight:600;margin:8px 0 4px">${esc(e.q.stem||'')}</p>
+     <p class="small good">正解：${esc(ansText(e.q))}</p>
+     ${e.q.rationale?`<p class="small mut">▸ ${esc(e.q.rationale)}</p>`:''}</div>`).join('')}
+   <button class="ghost" onclick="go('dash')">回總覽</button>`;
+}
+function clearErrs(){try{if(!confirm('清空全部錯題？'))return;}catch(e){}S.errors=[];save();Errors();}
+let er=null;
+function startErrRev(){const items=(S.errors||[]).slice(0,15);if(!items.length)return;er={items,i:0,reveal:false,kept:0,cleared:0};renderErr();}
+function renderErr(){
+  if(er.i>=er.items.length){erFinish();return;}
+  const e=er.items[er.i],q=normalizeQ(e.q);
+  const choices=(q.choices||[]).map((o,j)=>`<div class="opt" style="cursor:default${er.reveal&&j===q.correct?';border-color:var(--good);background:#10301f':''}">${String.fromCharCode(65+j)}. ${esc(o)}</div>`).join('');
+  $('#view').innerHTML=`<div class="card">
+    <div class="flex-between"><h2 style="margin:0">⚡ 錯題快閃</h2><span class="small mut">${er.i+1}/${er.items.length}</span></div>
+    <span class="tag">${esc((SEC_LABEL[e.sec]||e.sec)+'·'+(TYPE_LABEL[e.type]||e.type))}</span>
+    <p style="font-weight:600;margin:8px 0">${esc(e.q.stem||'')}</p>
+    ${choices}
+    ${er.reveal?`<div class="card" style="background:var(--card2);margin:10px 0"><p class="small good">正解：${esc(ansText(e.q))}</p>${e.q.rationale?`<p class="small mut">▸ ${esc(e.q.rationale)}</p>`:''}</div>
+      <p class="small mut">這次你答對了嗎？</p><div class="row"><button class="acc" onclick="erMark(true)">✅ 對了（移除）</button><button class="ghost" onclick="erMark(false)">❌ 還沒（保留）</button></div>`
+      :`<button class="acc" style="margin-top:10px" onclick="er.reveal=true;renderErr()">顯示答案</button>`}
+    <button class="ghost small" style="margin-top:10px" onclick="go('errors')">結束</button></div>`;
+}
+function erMark(ok){const e=er.items[er.i];if(ok){S.errors=(S.errors||[]).filter(x=>x._id!==e._id);er.cleared++;}else er.kept++;save();er.i++;er.reveal=false;renderErr();}
+function erFinish(){$('#view').innerHTML=`<div class="card"><h2>⚡ 複習完成</h2><p>清掉 <b>${er.cleared}</b> 題、保留 <b>${er.kept}</b> 題。剩餘錯題 <b>${(S.errors||[]).length}</b>。</p>
+    <p class="small mut">保留的下次再練；把規則內化進作答。</p>
+    <button class="acc" onclick="go('errors')">回錯題本</button> <button class="ghost" onclick="go('dash')">回總覽</button></div>`;}
 
 /* ============ 題源中心 ============ */
 function Resources(){
@@ -371,12 +434,20 @@ function pickQ(j){const raw=Q.set.questions[Q.i];if(Q.mode==='practice'&&Q.ans[Q
 function toggleMulti(j){const cur=Q.ans[Q.i]||[];if(Q.mode==='practice'&&Array.isArray(cur)&&cur._locked)return;const i=cur.indexOf(j);if(i>=0)cur.splice(i,1);else cur.push(j);Q.ans[Q.i]=cur;renderQ();}
 function submitMulti(){const cur=Q.ans[Q.i]||[];cur._locked=true;Q.ans[Q.i]=cur;renderQ();}
 function navQ(d){if(d>0&&Q.mode==='practice'){/*ok*/}Q.i+=d;renderQ();}
+function qCorrect(raw,a){const q=normalizeQ(raw);
+  if(q.kind==='multi'){const got=(a||[]).slice().sort();return got.length===q.correct.length&&got.every((x,k)=>x===q.correct[k]);}
+  return a===q.correct;}
 function quizScore(){let correct=0;const total=Q.set.questions.length;
-  Q.set.questions.forEach((raw,i)=>{const q=normalizeQ(raw),a=Q.ans[i];
-    if(q.kind==='multi'){const got=(a||[]).slice().sort();if(got.length===q.correct.length&&got.every((x,k)=>x===q.correct[k]))correct++;}
-    else if(a===q.correct)correct++;});
+  Q.set.questions.forEach((raw,i)=>{if(qCorrect(raw,Q.ans[i]))correct++;});
   return {correct,total,band:rateToBand(correct/total)};}
-function finishQuiz(){clearInterval(qTimer);const r=quizScore();if(Q.onDone)Q.onDone(r);}
+/* ===== 學習迴路：逐題記錄（弱項追蹤＋錯題本的資料骨幹）===== */
+function logItem(sec,type,ok,rawQ){
+  if(!S.stats)S.stats={};const k=sec+':'+(type||'其他');const e=S.stats[k]||{n:0,c:0};e.n++;if(ok)e.c++;S.stats[k]=e;
+  if(!ok&&rawQ){if(!S.errors)S.errors=[];const id=((rawQ.id||rawQ.stem||rawQ.prompt||'')+'').slice(0,50)+'|'+sec;
+    if(!S.errors.some(x=>x._id===id)){S.errors.unshift({_id:id,t:Date.now(),sec,type:type||'其他',q:rawQ});if(S.errors.length>80)S.errors.pop();}}}
+function logQuizItems(){const sec=(Q.set.section==='listening'||Q.set.script)?'listening':'reading';
+  Q.set.questions.forEach((raw,i)=>{const a=Q.ans[i];if(a==null)return;logItem(sec,raw.type,qCorrect(raw,a),raw);});}
+function finishQuiz(){clearInterval(qTimer);try{logQuizItems();save();}catch(e){}const r=quizScore();if(Q.onDone)Q.onDone(r);}
 
 /* TTS */
 let speechRate=1;
@@ -468,7 +539,9 @@ function startListen(i){const set=CONTENT.listening[i];startQuiz(set,{mode:'prac
 let lc=null;
 function startChoose(i){lc={set:CONTENT.listening[i],i:0,correct:0,picked:null,checked:false};renderChoose();}
 function lcSay(){const it=lc.set.items[lc.i];if(!ttsAvail()||!it)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(it.prompt);u.lang='en-US';u.rate=speechRate;const v=(speechSynthesis.getVoices()||[]).find(v=>/en[-_]US/i.test(v.lang));if(v)u.voice=v;speechSynthesis.speak(u);}
-function lcPick(j){if(lc.checked)return;lc.picked=j;lc.checked=true;if(j===lc.set.items[lc.i].answer)lc.correct++;save();renderChoose();}
+function lcPick(j){if(lc.checked)return;lc.picked=j;lc.checked=true;const it=lc.set.items[lc.i];const ok=j===it.answer;if(ok)lc.correct++;
+  logItem('listening','語用回應',ok,{id:lc.set.id+'-'+lc.i,type:'語用回應',stem:'最自然的回應：「'+it.prompt+'」',options:it.options,answer:it.answer,rationale:it.rationale,distractorRationale:it.distractorRationale});
+  save();renderChoose();}
 function lcNext(){lc.i++;lc.picked=null;lc.checked=false;if(lc.i>=lc.set.items.length){lcDone();return;}renderChoose();}
 function renderChoose(){
   const it=lc.set.items[lc.i],n=lc.set.items.length;
@@ -724,6 +797,7 @@ function renderBuild(){
 }
 function bsDone(){
   const total=bs.set.items.length,band=rateToBand(bs.correct/total);
+  bs.results.forEach(r=>logItem('句構',r.focus,r.ok,null));
   S.log.push({t:Date.now(),type:'build-sentence',correct:bs.correct,total,band});save();
   const weak=[...new Set(bs.results.filter(r=>!r.ok).map(r=>r.focus))];
   $('#view').innerHTML=`<div class="card"><h2>🧩 句構結算</h2>
