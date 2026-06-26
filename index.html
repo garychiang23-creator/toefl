@@ -156,8 +156,8 @@ let CONTENT={reading:[],listening:[],writing:[],speaking:[],vocab:[],resources:{
 let S=load();
 
 /* ============ 狀態 ============ */
-function load(){const D=()=>({scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false,cal:{reading:[],listening:[],speaking:[],writing:[]},stats:{},errors:[]});
- try{const d=JSON.parse(localStorage.getItem(KEY));if(d){const m=Object.assign(D(),d);m.cal=Object.assign({reading:[],listening:[],speaking:[],writing:[]},d.cal||{});return m;}}catch(e){}
+function load(){const D=()=>({scores:{reading:null,listening:null,speaking:null,writing:null},vocab:{},done:{},history:[],log:[],diagDone:false,cal:{reading:[],listening:[],speaking:[],writing:[]},stats:{},errors:[],secLog:{reading:[],listening:[],speaking:[],writing:[]}});
+ try{const d=JSON.parse(localStorage.getItem(KEY));if(d){const m=Object.assign(D(),d);m.cal=Object.assign({reading:[],listening:[],speaking:[],writing:[]},d.cal||{});m.secLog=Object.assign({reading:[],listening:[],speaking:[],writing:[]},d.secLog||{});return m;}}catch(e){}
  return D();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
@@ -165,7 +165,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 const $=s=>document.querySelector(s);
 function daysSince(d){return Math.floor((Date.now()-new Date(d+'T00:00:00').getTime())/86400000);}
 function curWeek(){return Math.min(8,Math.max(1,Math.floor(daysSince(PLAN_START)/7)+1));}
-function overall(){const v=SECTIONS.map(([k])=>S.scores[k]).filter(x=>x!=null);if(v.length<4)return null;return Math.round(v.reduce((a,b)=>a+b,0)/4*2)/2;}
+function overall(){const v=SECTIONS.map(([k])=>secRaw(k)).filter(x=>x!=null);if(v.length<4)return null;return Math.round(v.reduce((a,b)=>a+b,0)/4*2)/2;}
 /* ===== 官方校準（poor man's equating）：原始估計存 S.scores，校準只在顯示層套用 ===== */
 function clampB(b){if(b==null)return null;return Math.round(Math.max(1,Math.min(6,b))*2)/2;}
 function calMap(sec,raw){const pts=(S.cal&&S.cal[sec])||[];
@@ -175,11 +175,40 @@ function calMap(sec,raw){const pts=(S.cal&&S.cal[sec])||[];
   const n=pts.length,sx=pts.reduce((s,p)=>s+p.app,0),sy=pts.reduce((s,p)=>s+p.official,0),sxx=pts.reduce((s,p)=>s+p.app*p.app,0),sxy=pts.reduce((s,p)=>s+p.app*p.official,0),den=n*sxx-sx*sx;
   if(Math.abs(den)<1e-9){const off=(sy-sx)/n;return {band:clampB(raw+off),conf:n};}
   const a=(n*sxy-sx*sy)/den,b=(sy-a*sx)/n;return {band:clampB(a*raw+b),conf:n};}
-function calBand(sec){return calMap(sec,S.scores[sec]).band;}
+function calBand(sec){return calMap(sec,secRaw(sec)).band;}
 function calConf(sec){return ((S.cal&&S.cal[sec])||[]).length;}
 function overallCal(){const v=SECTIONS.map(([k])=>calBand(k)).filter(x=>x!=null);if(v.length<4)return null;return Math.round(v.reduce((a,b)=>a+b,0)/4*2)/2;}
 function anyCal(){return SECTIONS.some(([k])=>calConf(k)>0);}
 function calPill(sec){const c=calConf(sec);return c?`<span class="pill ok small" title="已用 ${c} 次官方對照校準">校準×${c}</span>`:`<span class="pill gap small" title="未經官方校準，為估計值">估計</span>`;}
+/* ===== 能力估計：難度感知（官方 CEFR→band 錨）＋近期視窗，輸出範圍＋信心 ===== */
+function cefrCenter(s){s=(s||'').toUpperCase();const c2=s.indexOf('C2')>=0,c1=s.indexOf('C1')>=0,b2=s.indexOf('B2')>=0,b1=s.indexOf('B1')>=0;
+  if(c2&&c1)return 5.75;if(c2)return 6;if(c1&&b2)return 4.75;if(c1)return 5.25;if(b2)return 4.25;if(b1)return 3.5;return 5;}
+const SEC_MIN=6; // R/L 達此題數，練習估計才取代起始基準
+function secEstimate(sec){const w=(S.secLog&&S.secLog[sec])||[];if(!w.length)return null;
+  if(sec==='writing'||sec==='speaking'){ // W/S：來源加權近期平均（官方>AI>自評）
+    const ww=w.slice(-12),wt={official:3,ai:2,self:1};let sw=0,sv=0;
+    ww.forEach(x=>{const k=wt[x.source]||1;sw+=k;sv+=k*(+x.band);});
+    const band=clampB(sv/(sw||1)),hasOff=ww.some(x=>x.source==='official'),aiN=ww.filter(x=>x.source==='ai').length;
+    const conf=hasOff?'high':(aiN>=2||ww.length>=4)?'mid':'low',half=conf==='high'?0.5:conf==='mid'?0.75:1;
+    return {band,lo:clampB(band-half),hi:clampB(band+half),n:w.length,conf,src:hasOff?'官方':aiN?'AI評':'自評',ws:true};}
+  const n=w.length,c=w.filter(x=>x.ok).length,acc=c/n,tier=w.reduce((s,x)=>s+cefrCenter(x.cefr),0)/n;
+  // 0.4 看正確率（難度無關）＋0.6 看難度錨（依正確率相對 75% 微調）——透明啟發式、非 IRT
+  const raw=0.4*rateToBand(acc)+0.6*(tier+(acc-0.75));
+  const band=clampB(raw),conf=n>=20?'high':n>=8?'mid':'low',half=conf==='high'?0.5:conf==='mid'?0.75:1;
+  return {band,lo:clampB(band-half),hi:clampB(band+half),n,acc,tier:+tier.toFixed(2),conf};}
+function secRaw(sec){const e=secEstimate(sec);const min=(sec==='reading'||sec==='listening')?SEC_MIN:1;if(e&&e.n>=min)return e.band;return S.scores[sec];}
+function wsRecord(section,band,source){band=+band;if(!band)return;if(!S.secLog[section])S.secLog[section]=[];
+  S.secLog[section].push({t:Date.now(),band,source:source||'self'});if(S.secLog[section].length>20)S.secLog[section].shift();save();
+  const m=$('#wsMsg_'+section);if(m){m.innerHTML=`✅ 已記錄（${({official:'官方',ai:'AI評',self:'自評'}[source]||'自評')} ${band}）→ 估計已更新為 ${secRaw(section)}`;m.className='small good';}}
+function wsRecordRow(section){return `<div class="card" style="background:var(--card2);margin-top:10px"><b class="small">📊 把本次評分記入能力估計</b>
+  <p class="small mut" style="margin:6px 0">用 AI 批改（claude -p）或官方 TestReady 得到 band 後記錄；自評可選但信心較低。各來源加權累積成估計。</p>
+  <div class="row">${bandSelect('wsBand_'+section)}<select id="wsSrc_${section}"><option value="ai">AI 批改</option><option value="official">官方/TestReady</option><option value="self">自評</option></select><button class="acc" onclick="wsRecord('${section}',document.getElementById('wsBand_${section}').value,document.getElementById('wsSrc_${section}').value)">記錄</button></div>
+  <div id="wsMsg_${section}" class="small" style="margin-top:6px"></div></div>`;}
+function bandToCEFR(b){if(b==null)return '—';if(b>=6)return 'C2';if(b>=5)return 'C1';if(b>=4)return 'B2';if(b>=3)return 'B1';if(b>=2)return 'A2';return 'A1';}
+const CEFR_DESC={C2:'近母語：理解高度複雜文本、精準流暢表達',C1:'進階：理解長而複雜的學術文本、流暢自發表達',B2:'中高級：跟上延伸論證、就議題說明利弊',B1:'中級：理解清楚標準語主旨、用簡單語言靈活表達',A2:'初級：理解切身片語、應付簡短互動',A1:'入門：辨識基本字詞、極短預製語句','—':'資料不足'};
+/* 官方換算：舊托福 0–120 總分 → 新制 1–6 總分帶 */
+function concord(t){t=+t;const T=[[114,6],[107,5.5],[95,5],[86,4.5],[72,4],[58,3.5],[44,3],[34,2.5],[24,2],[12,1.5],[0,1]];for(const[lo,b]of T)if(t>=lo)return b;return 1;}
+function concShow(){const v=+(($('#oldT')&&$('#oldT').value)||0);const o=$('#oldOut');if(o)o.textContent=v?('≈ 新制總分帶 '+concord(v)+'（官方對照）'):'請輸入 0–120';}
 function rateToBand(p){if(p>=0.95)return 6;if(p>=0.85)return 5.5;if(p>=0.72)return 5;if(p>=0.58)return 4.5;if(p>=0.45)return 4;if(p>=0.32)return 3.5;if(p>=0.2)return 3;return 2.5;}
 function chkToBand(c,t){const p=c/t;if(p>=1)return 6;if(p>=0.85)return 5.5;if(p>=0.7)return 5;if(p>=0.5)return 4.5;if(p>=0.34)return 4;if(p>0)return 3.5;return 3;}
 function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
@@ -220,7 +249,10 @@ function render(){({dash:Dash,read:Read,listen:Listen,vocab:Vocab,speak:Speak,wr
 function Dash(){
   const wk=curWeek(),ov=overallCal(),W=WEEKS[wk-1];
   const gap=ov==null?null:Math.max(0,(TARGET-ov)).toFixed(1);
-  const sc=SECTIONS.map(([k,n])=>{const v=calBand(k);return `<div class="s"><small>${n} ${calPill(k)}</small><b style="color:${v==null?'var(--mut)':v>=5.5?'var(--good)':v>=5?'var(--txt)':'var(--warn)'}">${v==null?'—':v}</b></div>`;}).join('');
+  const sc=SECTIONS.map(([k,n])=>{const v=calBand(k),e=secEstimate(k);
+    const det=calConf(k)?'已校準':(e?(e.ws?`${e.src}·n${e.n}`:(e.n>=SEC_MIN?`~${e.lo}–${e.hi}·n${e.n}`:(S.scores[k]!=null?'自評基準':`n${e.n}不足`))):(S.scores[k]!=null?'自評基準':'尚無'));
+    return `<div class="s"><small>${n} ${calPill(k)}</small><b style="color:${v==null?'var(--mut)':v>=5.5?'var(--good)':v>=5?'var(--txt)':'var(--warn)'}">${v==null?'—':v}</b><div class="mut" style="font-size:10px;margin-top:2px">${det}</div></div>`;}).join('');
+  const lvl=bandToCEFR(ov);
   const calibrated=anyCal();
   const statusLine=calibrated
     ? `<span class="pill ok small">已校準</span> 分數已用官方對照校準（各科信心見上方標籤）。`
@@ -232,7 +264,8 @@ function Dash(){
    <div class="card">
      <div class="flex-between"><h2 style="margin:0">目前總分（四科平均）</h2>
        ${ov==null?'<span class="pill gap">尚未集滿四科</span>':(ov>=TARGET?'<span class="pill ok">已達標 🎯</span>':`<span class="pill gap">距 ${TARGET} 差 ${gap}</span>`)}</div>
-     <div class="big" style="margin:8px 0">${ov==null?'—':ov}<span class="mut" style="font-size:14px"> / 6.0</span></div>
+     <div class="big" style="margin:8px 0">${ov==null?'—':ov}<span class="mut" style="font-size:14px"> / 6.0</span>${ov!=null?`<span class="pill ${lvl==='C2'||lvl==='C1'?'c1':'small'} small" style="margin-left:8px">估計 ~${lvl}</span>`:''}</div>
+     ${ov!=null?`<p class="small mut" style="margin:-2px 0 8px">${CEFR_DESC[lvl]||''}</p>`:''}
      <div class="scoregrid">${sc}</div>
      ${(()=>{const w=weakest(),en=(S.errors||[]).length;if(!w&&!en)return '';return `<p class="small" style="margin:10px 0 0"><span class="pill gap small">最弱</span> ${w?esc(w.label)+' '+Math.round(w.acc*100)+'%':'資料不足'}${en?'｜錯題 '+en+' 題':''} <button class="ghost small" onclick="go('insights')">→ 學習分析</button></p>`;})()}
      <p class="small mut" style="margin:10px 0 0">${statusLine}</p>
@@ -265,19 +298,22 @@ function exportData(){try{const blob=new Blob([JSON.stringify(S,null,2)],{type:'
 const BANDVALS=[1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6];
 function bandSelect(id){return `<select id="${id}"><option value="">—</option>${BANDVALS.map(v=>`<option value="${v}">${v}</option>`).join('')}</select>`;}
 function Calib(){
-  const offTxt=sec=>{const pts=(S.cal&&S.cal[sec])||[];if(!pts.length)return '<span class="mut">未校準</span>';const off=pts.reduce((s,p)=>s+(p.official-p.app),0)/pts.length;return `${pts.length} 點｜平均偏移 ${off>=0?'+':''}${off.toFixed(2)}${pts.length>=3?'（已用線性擬合）':''}　估計 ${S.scores[sec]==null?'—':S.scores[sec]} → 校準 ${calBand(sec)==null?'—':calBand(sec)}`;};
-  const rows=SECTIONS.map(([k,n])=>`<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--line)">
-    <div style="flex:1"><b>${n}</b> ${calPill(k)}<div class="small mut" style="margin-top:2px">App 估計 ${S.scores[k]==null?'<span class="bad">—（先練此科）</span>':S.scores[k]}｜${offTxt(k)}</div></div>
-    <div class="small" style="white-space:nowrap">官方分 ${bandSelect('cal_'+k)}</div></div>`).join('');
+  const offTxt=sec=>{const pts=(S.cal&&S.cal[sec])||[];if(!pts.length)return '<span class="mut">未校準</span>';const off=pts.reduce((s,p)=>s+(p.official-p.app),0)/pts.length;return `${pts.length} 點｜平均偏移 ${off>=0?'+':''}${off.toFixed(2)}${pts.length>=3?'（已用線性擬合）':''}　估計 ${secRaw(sec)==null?'—':secRaw(sec)} → 校準 ${calBand(sec)==null?'—':calBand(sec)}`;};
+  const rows=SECTIONS.map(([k,n])=>{const e=secEstimate(k),ar=secRaw(k);return `<div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--line)">
+    <div style="flex:1"><b>${n}</b> ${calPill(k)}<div class="small mut" style="margin-top:2px">App 估計 ${ar==null?'<span class="bad">—（先練此科）</span>':ar+(e&&e.n>=SEC_MIN?` (n${e.n})`:'（自評基準）')}｜${offTxt(k)}</div></div>
+    <div class="small" style="white-space:nowrap">官方分 ${bandSelect('cal_'+k)}</div></div>`;}).join('');
   const hist=[];SECTIONS.forEach(([k,n])=>((S.cal&&S.cal[k])||[]).forEach(p=>hist.push({n,t:p.t,app:p.app,official:p.official})));
   hist.sort((a,b)=>b.t-a.t);
   $('#view').innerHTML=`<div class="card"><h2>🎯 官方校準 <span class="small mut">poor man's equating</span></h2>
     <p class="small mut">本 App 分數是<b>估計值</b>（rate→band 門檻為設計值，未經官方真人預試 IRT）。做一份<b>官方</b> ETS 模考、填入真實 band，App 就用「官方分 vs App 同期估計」校準：<b>1–2 點</b>用平均偏移、<b>≥3 點</b>用最小平方線性擬合。這是把估計接上現實的唯一誠實做法。</p>
     <div class="card" style="background:var(--card2)"><b class="small">步驟</b>
-      <p class="small mut" style="margin:6px 0 0">① 到題源中心做官方 ETS 免費模考（新制 1–6）。② 逐科填官方 band（下方已列你近期 App 估計供配對；缺估計的科請先在本 App 練過）。③ 送出更新校準。</p>
+      <p class="small mut" style="margin:6px 0 0">① 用<b>免費 TOEFL TestReady</b>（與真考<b>同一套評分引擎</b>）或官方 Sample Test Jan 2026 做新制練習，拿到各科 1–6。② 逐科填官方 band（下方已列你近期 App 估計供配對；缺估計的科請先在本 App 練過）。③ 送出更新校準。</p>
       <button class="acc" style="margin-top:8px" onclick="go('res')">前往題源中心</button></div>
     <div style="margin-top:12px">${rows}</div>
     <button class="acc" style="margin-top:12px" onclick="calSubmit()">送出官方成績並校準</button>
+    <details class="small" style="margin-top:12px"><summary>既有成績換算（舊托福 0–120 → 新制 1–6）</summary>
+      <p class="mut" style="margin:6px 0">有過去托福總分就能<b>零測驗</b>得到新制總分帶（官方對照）。註：此為<b>總分</b>換算，非各科校準；各科仍用上方 TestReady 各科分。</p>
+      <div class="row"><input id="oldT" type="text" inputmode="numeric" placeholder="舊總分 0–120" style="max-width:150px"><button class="ghost" onclick="concShow()">換算</button><span id="oldOut" class="small good"></span></div></details>
     <div id="calMsg" class="small" style="margin-top:8px"></div>
     <details class="small" style="margin-top:12px"><summary>校準紀錄（${hist.length}）</summary>${hist.length?hist.map(h=>`<p class="mut" style="margin:4px 0">${new Date(h.t).toISOString().slice(0,10)} · ${h.n}：App ${h.app} → 官方 ${h.official}</p>`).join(''):'<p class="mut">尚無紀錄</p>'}</details>
     <p class="small mut" style="margin:10px 0 0">⚠ 誠實限制：單次官方測驗也有測量誤差，<b>1 點＝低信心</b>；多做幾次校準才穩。校準對齊的是過去官方分，仍無法保證未來表現。</p>
@@ -285,7 +321,7 @@ function Calib(){
 }
 function calSubmit(){
   let added=0;const skip=[];
-  SECTIONS.forEach(([k,n])=>{const el=document.getElementById('cal_'+k);const off=el&&el.value?+el.value:null;const app=S.scores[k];
+  SECTIONS.forEach(([k,n])=>{const el=document.getElementById('cal_'+k);const off=el&&el.value?+el.value:null;const app=secRaw(k);
     if(off==null)return;
     if(app==null){skip.push(n);return;}
     S.cal[k].push({t:Date.now(),app,official:off});added++;});
@@ -435,18 +471,19 @@ function toggleMulti(j){const cur=Q.ans[Q.i]||[];if(Q.mode==='practice'&&Array.i
 function submitMulti(){const cur=Q.ans[Q.i]||[];cur._locked=true;Q.ans[Q.i]=cur;renderQ();}
 function navQ(d){if(d>0&&Q.mode==='practice'){/*ok*/}Q.i+=d;renderQ();}
 function qCorrect(raw,a){const q=normalizeQ(raw);
-  if(q.kind==='multi'){const got=(a||[]).slice().sort();return got.length===q.correct.length&&got.every((x,k)=>x===q.correct[k]);}
+  if(q.kind==='multi'){const got=(Array.isArray(a)?a:[]).slice().sort();return got.length===q.correct.length&&got.every((x,k)=>x===q.correct[k]);}
   return a===q.correct;}
 function quizScore(){let correct=0;const total=Q.set.questions.length;
   Q.set.questions.forEach((raw,i)=>{if(qCorrect(raw,Q.ans[i]))correct++;});
   return {correct,total,band:rateToBand(correct/total)};}
 /* ===== 學習迴路：逐題記錄（弱項追蹤＋錯題本的資料骨幹）===== */
-function logItem(sec,type,ok,rawQ){
+function logItem(sec,type,ok,rawQ,cefr){
   if(!S.stats)S.stats={};const k=sec+':'+(type||'其他');const e=S.stats[k]||{n:0,c:0};e.n++;if(ok)e.c++;S.stats[k]=e;
+  if(sec==='reading'||sec==='listening'){if(!S.secLog)S.secLog={reading:[],listening:[],speaking:[],writing:[]};const w=S.secLog[sec]||(S.secLog[sec]=[]);w.push({t:Date.now(),ok:!!ok,cefr:cefr||'C1'});if(w.length>40)w.shift();}
   if(!ok&&rawQ){if(!S.errors)S.errors=[];const id=((rawQ.id||rawQ.stem||rawQ.prompt||'')+'').slice(0,50)+'|'+sec;
     if(!S.errors.some(x=>x._id===id)){S.errors.unshift({_id:id,t:Date.now(),sec,type:type||'其他',q:rawQ});if(S.errors.length>80)S.errors.pop();}}}
-function logQuizItems(){const sec=(Q.set.section==='listening'||Q.set.script)?'listening':'reading';
-  Q.set.questions.forEach((raw,i)=>{const a=Q.ans[i];if(a==null)return;logItem(sec,raw.type,qCorrect(raw,a),raw);});}
+function logQuizItems(){const sec=(Q.set.section==='listening'||Q.set.script)?'listening':'reading';const cefr=Q.set.targetCEFR||(Q.set._meta&&Q.set._meta.cefr)||'C1';
+  Q.set.questions.forEach((raw,i)=>{const a=Q.ans[i];if(a==null)return;logItem(sec,raw.type,qCorrect(raw,a),raw,cefr);});}
 function finishQuiz(){clearInterval(qTimer);try{logQuizItems();save();}catch(e){}const r=quizScore();if(Q.onDone)Q.onDone(r);}
 
 /* TTS */
@@ -507,7 +544,7 @@ function submitCW(){
   S.log.push({t:Date.now(),type:'complete-words',correct,band:cw.band}); save(); renderCW();
 }
 function startRead(i){const set=CONTENT.reading[i];startQuiz(set,{mode:'practice',timed:true,onDone:r=>{
-  S.scores.reading=r.band;S.log.push({t:Date.now(),type:'read',correct:r.correct,band:r.band,secs:Q.secs});save();
+  S.log.push({t:Date.now(),type:'read',correct:r.correct,band:r.band,secs:Q.secs});save();
   $('#view').innerHTML=`<div class="card"><h2>閱讀完成</h2><p>答對 <b>${r.correct}/${r.total}</b> · 用時 ${fmt(Q.secs)} · 估計 <b>${r.band}</b> 分</p>
     <p class="small mut">已更新總覽閱讀分。錯題請回看短文定位句、標記題型弱點。</p>
     <button class="acc" onclick="go('read')">再選一篇</button> <button class="ghost" onclick="go('dash')">回總覽</button></div>`;}});}
@@ -531,7 +568,7 @@ function Listen(){
 }
 function startListen(i){const set=CONTENT.listening[i];startQuiz(set,{mode:'practice',timed:true,onDone:r=>{
   if(ttsAvail())speechSynthesis.cancel();
-  S.scores.listening=r.band;S.log.push({t:Date.now(),type:'listen',correct:r.correct,band:r.band});save();
+  S.log.push({t:Date.now(),type:'listen',correct:r.correct,band:r.band});save();
   $('#view').innerHTML=`<div class="card"><h2>聽力完成</h2><p>答對 <b>${r.correct}/${r.total}</b> · 估計 <b>${r.band}</b> 分</p>
     <button class="acc" onclick="go('listen')">再選一篇</button> <button class="ghost" onclick="go('dash')">回總覽</button></div>`;}});}
 
@@ -663,12 +700,13 @@ function Speak(){
     <div class="flex-between" style="margin:6px 0"><span class="timer" id="spTimer" style="font-size:22px">${talk}s</span><span class="small mut" id="spPhase">就緒</span></div>
     <div class="row"><button class="acc" id="spStart" onclick="spBegin(${prep},${talk})">開始錄音</button><button class="ghost" id="spStop" onclick="spStop()" disabled>停止</button></div>
     <div id="spAudio"></div>
-    <details style="margin-top:14px"><summary>對 rubric 自評（勾選→估分）</summary>${rubric(((set.rubric||{}).dims||[]).map(d=>d.k),'sp')}</details></div>`;
+    <details style="margin-top:14px"><summary>對 rubric 自評（勾選→估分）</summary>${rubric(((set.rubric||{}).dims||[]).map(d=>d.k),'sp')}</details>
+    ${wsRecordRow('speaking')}</div>`;
 }
 function spSay(i){const set=spList()[spState.idx];const s=(set.items||[])[i];if(!s||!ttsAvail())return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(s.sentence);u.lang='en-US';u.rate=speechRate;const v=(speechSynthesis.getVoices()||[]).find(v=>/en[-_]US/i.test(v.lang));if(v)u.voice=v;speechSynthesis.speak(u);}
 function rubric(items,ns){return items.map((t,i)=>`<label class="chk"><input type="checkbox" onchange="rubScore('${ns}')"> ${t}</label>`).join('')+`<div id="${ns}Band" class="small" style="margin-top:6px"></div>`;}
 function rubScore(ns){const boxes=document.querySelectorAll('#view details input[type=checkbox]');const c=[...boxes].filter(b=>b.checked).length,band=chkToBand(c,boxes.length);
-  const key=ns==='sp'?'speaking':'writing';$('#'+ns+'Band').innerHTML=`勾 ${c}/${boxes.length} → 估 <b>${band}</b> 分　<button class="ghost small" onclick="S.scores.${key}=${band};save();alert('已更新${ns==='sp'?'口說':'寫作'} = ${band}')">套用總覽</button>`;}
+  const key=ns==='sp'?'speaking':'writing';$('#'+ns+'Band').innerHTML=`勾 ${c}/${boxes.length} → 估 <b>${band}</b> 分　<button class="ghost small" onclick="wsRecord('${key}',${band},'self')">記錄為自評</button>`;}
 function spBegin(prep,talk){$('#spStart').disabled=true;$('#spStop').disabled=false;
   let phase=prep>0?'prep':'talk',left=prep>0?prep:talk;
   if(phase==='talk'){$('#spPhase').textContent='錄音中 ●';startRec();}else{$('#spPhase').textContent='構思中…';}
@@ -714,14 +752,19 @@ function Write(){
     <details style="margin-top:12px"><summary>對 rubric 自檢（勾選→估分）</summary>${rubric(dims.map(d=>'「'+d.k+'」達頂標：'+d.b5),'w')}</details>
     <div class="card" style="background:var(--card2);margin-top:12px"><b class="small">🤖 AI 批改（本機 claude -p）</b>
       <p class="small mut">產生可貼到終端機的 prompt，依新制 0–5 rubric 回各維度分＋三條修改建議。</p>
-      <button onclick="wAI()">產生批改 prompt</button><textarea id="wAIout" rows="4" style="margin-top:8px;display:none"></textarea></div></div>
+      <button onclick="wAI()">產生批改 prompt</button><textarea id="wAIout" rows="4" style="margin-top:8px;display:none"></textarea></div>
+    ${wsRecordRow('writing')}</div>
   ${buildCard}`;
 }
 function wCount(){const t=($('#wText').value||'').trim();$('#wCount').textContent=t?t.split(/\s+/).length:0;}
 function wToggle(min){if(wTimer){clearInterval(wTimer);wTimer=null;$('#wTimerBtn').textContent='▶ 繼續';return;}if(!wLeft)wLeft=min*60;
   wTimer=setInterval(()=>{wLeft--;$('#wTimerBtn').textContent='⏸ '+fmt(wLeft);if(wLeft<=0){clearInterval(wTimer);wTimer=null;$('#wTimerBtn').textContent='⏰ 時間到';}},1000);}
-function wAI(){const p=wExemplarList()[wIdx],essay=($('#wText').value||'').trim();const dims=((p.rubric||{}).dims||[]).map(d=>d.k).join(', ');
-  const prompt=`You are an ETS-trained TOEFL iBT (2026) writing rater.\nTask: ${TASK_LABEL[p.taskType]||p.taskType}.\nPrompt:\n${promptText(p)}\n\nStudent response:\n"""${essay||'(尚未作答)'}"""\n\nScore each rubric dimension (${dims}) on 0–5, then an overall 0–5 and the approximate 1–6 section band. Give: (1) per-dimension scores, (2) one strength, (3) three specific actionable fixes, (4) one rewritten model sentence. Be concise.`;
+/* 官方 holistic 0–5 評分指南（改寫自 ETS 公開 Scoring Guide；對齊官方而非自訂維度）*/
+const OFFICIAL_W={
+ 'write-email':"官方 holistic 0–5（Write an Email）：5＝有效清楚、闡述有效支持溝通目的、句法多樣＋精準慣用詞、一貫適當社交慣例(語域/禮貌/請求拒絕等)、幾乎無錯；4＝大致有效易懂、闡述足夠、句法多樣＋適當詞、社交慣例多數恰當、少量錯；3＝大致完成但語言限制使部分訊息不夠清楚、中等句法詞彙、結構/詞形/慣用/社交慣例有明顯錯；2＝有嘗試但多半無效、闡述有限或不相關、句法詞彙範圍有限、錯誤累積；1＝無效、電報式片段、嚴重頻繁錯、幾無原創；0＝空白/拒題/全抄題幹/離題。",
+ 'write-discussion':"官方 holistic 0–5（Academic Discussion）：5＝切題且非常清楚的線上討論貢獻、relevant 且充分闡述的解釋/例/細節、多樣句構＋精準慣用詞、幾乎無錯；4＝切題、易懂、闡述足夠、句構多樣＋適當詞、少量錯；3＝大致完成但語言限制使部分不清、中等句法詞彙；2＝有嘗試但想法難跟、闡述差或僅部分相關、句構詞彙受限、錯誤累積；1＝無效、少有連貫語言；0＝空白/拒題/全抄/離題。"};
+function wAI(){const p=wExemplarList()[wIdx],essay=($('#wText').value||'').trim();
+  const prompt=`你是對齊 ETS 官方評分指南的 TOEFL iBT 2026 寫作評分員。嚴格依下列「官方 holistic 評分準則」給一個整體 band（0–5，可 0.5）。\n${OFFICIAL_W[p.taskType]||''}\n\n任務：${TASK_LABEL[p.taskType]||p.taskType}\n題目：\n${promptText(p)}\n\n考生作答：\n"""${essay||'(尚未作答)'}"""\n\n用繁中、精簡回覆：(1) 官方 holistic band（0–5）＋粗估對應總分帶（5≈6.0/4≈5.0–5.5/3≈4.0–4.5，註明為粗估）＋一句總評；(2) 對照官方四要素各一句：闡述/溝通目的、句法多樣＋用詞、社交慣例/切題互動、語言準確；(3) 三個最關鍵的具體可改處；(4) 一句改寫示範。`;
   const el=$('#wAIout');el.style.display='block';el.value='claude -p '+JSON.stringify(prompt);el.select();try{navigator.clipboard.writeText(el.value);}catch(e){}}
 
 /* ===== 范文示範答檢視器（寫作單題 + 面談逐題；分數帶切換 + 逐句註解 + rubric 評分卡）===== */
