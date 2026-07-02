@@ -801,8 +801,8 @@ function Write(){
     <div class="flex-between" style="margin:12px 0 4px"><button class="ghost small" id="wTimerBtn" onclick="wToggle(${p.timeLimit})">▶ 計時 ${p.timeLimit}:00</button><span class="small mut"><span id="wCount">0</span> / ${(p.wordRange||[])[1]||''} 字</span></div>
     <textarea id="wText" rows="9" placeholder="在此作答…" oninput="wCount()"></textarea>
     <details style="margin-top:12px"><summary>對 rubric 自檢（勾選→估分）</summary>${rubric(dims.map(d=>'「'+d.k+'」達頂標：'+d.b5),'w')}</details>
-    <div class="card" style="background:var(--card2);margin-top:12px"><b class="small">🤖 AI 批改（本機 claude -p）</b>
-      <p class="small mut">產生可貼到終端機的 prompt，依新制 0–5 rubric 回各維度分＋三條修改建議。</p>
+    <div class="card" style="background:var(--card2);margin-top:12px"><b class="small">🤖 AI 批改（本機 claude -p）<span class="pill ok small" style="margin-left:6px" title="已用 ETS 官方帶分樣本盲評校準（n=4，MAE 0.5）；殘差方向偏嚴（不會高估）">官方樣本校準</span></b>
+      <p class="small mut">產生可貼到終端機的 prompt，依官方 holistic 0–5 評分（<b>已用 ETS 官方帶分樣本校準</b>：容忍限時錯誤、重闡述深度；殘差≤1 且偏嚴＝不會給你虛胖分數）＋三條修改建議。</p>
       <button onclick="wAI()">產生批改 prompt</button><textarea id="wAIout" rows="4" style="margin-top:8px;display:none"></textarea></div>
     ${wsRecordRow('writing')}</div>
   ${buildCard}`;
@@ -814,8 +814,15 @@ function wToggle(min){if(wTimer){clearInterval(wTimer);wTimer=null;$('#wTimerBtn
 const OFFICIAL_W={
  'write-email':"官方 holistic 0–5（Write an Email）：5＝有效清楚、闡述有效支持溝通目的、句法多樣＋精準慣用詞、一貫適當社交慣例(語域/禮貌/請求拒絕等)、幾乎無錯；4＝大致有效易懂、闡述足夠、句法多樣＋適當詞、社交慣例多數恰當、少量錯；3＝大致完成但語言限制使部分訊息不夠清楚、中等句法詞彙、結構/詞形/慣用/社交慣例有明顯錯；2＝有嘗試但多半無效、闡述有限或不相關、句法詞彙範圍有限、錯誤累積；1＝無效、電報式片段、嚴重頻繁錯、幾無原創；0＝空白/拒題/全抄題幹/離題。",
  'write-discussion':"官方 holistic 0–5（Academic Discussion）：5＝切題且非常清楚的線上討論貢獻、relevant 且充分闡述的解釋/例/細節、多樣句構＋精準慣用詞、幾乎無錯；4＝切題、易懂、闡述足夠、句構多樣＋適當詞、少量錯；3＝大致完成但語言限制使部分不清、中等句法詞彙；2＝有嘗試但想法難跟、闡述差或僅部分相關、句構詞彙受限、錯誤累積；1＝無效、少有連貫語言；0＝空白/拒題/全抄/離題。"};
+/* 校準註記：以 ETS 官方帶分樣本盲評校準（2026-07-02，n=4，MAE 1.0→0.5；詳 rater_calibration.md）。
+ * 修正 AI 評分直覺比官方偏嚴、錯誤計數權重過高的系統性偏差；殘差＝頂帶方向仍偏嚴 ≤1（保守側）。 */
+const CAL_NOTE=`校準註記（依 ETS 官方評分者評語歸納，務必遵守）：
+①官方對「限時書寫的語言錯誤」容忍度很高：拼字、冠詞、介系詞、代名詞誤用、少量時態錯或 run-on，只要不妨礙理解，5 分仍然成立。扣分主因是「妨礙理解」與「語言範圍受限」，不是錯誤的數量。
+②闡述深度（elaboration）權重最高：論點有展開、有對比/例子/因果鏈的充分回應，即使語言有明顯瑕疵，應優先落在 4–5。
+③3 分的定義門檻是「語言限制使部分訊息不清」——若讀者能順暢理解全文意思，就不應低於 4。
+④先判「溝通是否成功、闡述是否充分」決定 4 或 5，再看語言瑕疵是否嚴重到降級；不要從錯誤清單出發往下扣。`;
 function wAI(){const p=wExemplarList()[wIdx],essay=($('#wText').value||'').trim();
-  const prompt=`你是對齊 ETS 官方評分指南的 TOEFL iBT 2026 寫作評分員。嚴格依下列「官方 holistic 評分準則」給一個整體 band（0–5，可 0.5）。\n${OFFICIAL_W[p.taskType]||''}\n\n任務：${TASK_LABEL[p.taskType]||p.taskType}\n題目：\n${promptText(p)}\n\n考生作答：\n"""${essay||'(尚未作答)'}"""\n\n用繁中、精簡回覆：(1) 官方 holistic band（0–5）＋粗估對應總分帶（5≈6.0/4≈5.0–5.5/3≈4.0–4.5，註明為粗估）＋一句總評；(2) 對照官方四要素各一句：闡述/溝通目的、句法多樣＋用詞、社交慣例/切題互動、語言準確；(3) 三個最關鍵的具體可改處；(4) 一句改寫示範。`;
+  const prompt=`你是對齊 ETS 官方評分指南的 TOEFL iBT 2026 寫作評分員。嚴格依下列「官方 holistic 評分準則」給一個整體 band（0–5，可 0.5）。\n${OFFICIAL_W[p.taskType]||''}\n\n${CAL_NOTE}\n\n任務：${TASK_LABEL[p.taskType]||p.taskType}\n題目：\n${promptText(p)}\n\n考生作答：\n"""${essay||'(尚未作答)'}"""\n\n用繁中、精簡回覆：(1) 官方 holistic band（0–5）＋粗估對應總分帶（5≈6.0/4≈5.0–5.5/3≈4.0–4.5，註明為粗估）＋一句總評；(2) 對照官方四要素各一句：闡述/溝通目的、句法多樣＋用詞、社交慣例/切題互動、語言準確；(3) 三個最關鍵的具體可改處；(4) 一句改寫示範。`;
   const el=$('#wAIout');el.style.display='block';el.value='claude -p '+JSON.stringify(prompt);el.select();try{navigator.clipboard.writeText(el.value);}catch(e){}}
 
 /* ===== 范文示範答檢視器（寫作單題 + 面談逐題；分數帶切換 + 逐句註解 + rubric 評分卡）===== */
