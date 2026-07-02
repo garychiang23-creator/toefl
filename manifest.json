@@ -1,7 +1,7 @@
 {
-  "name": "TOEFL 2026 訓練系統",
-  "short_name": "TOEFL 2026",
-  "description": "新制 TOEFL iBT（1–6 分制）訓練系統：診斷、閱讀、聽力、詞彙、口說、寫作、模考。",
+  "name": "新制 TOEFL 訓練系統",
+  "short_name": "TOEFL",
+  "description": "新制 TOEFL iBT（2026 起 1–6 分制）訓練系統：診斷、閱讀、聽力、詞彙、口說、寫作、模考。",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

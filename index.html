@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b3d5c">
 <link rel="manifest" href="manifest.json">
-<title>TOEFL 2026 訓練系統</title>
+<title>新制 TOEFL 訓練系統</title>
 <style>
   :root{--bg:#0b1220;--card:#131c2e;--card2:#0f1726;--line:#243149;--txt:#e6edf6;--mut:#8aa0bd;--acc:#3da9fc;--good:#37d399;--warn:#f6c453;--bad:#f87272}
   *{box-sizing:border-box}
@@ -58,7 +58,7 @@
 </head>
 <body>
 <header>
-  <h1>TOEFL 2026 訓練系統</h1>
+  <h1>新制 TOEFL 訓練系統</h1>
   <div class="sub" id="hdrSub">目標 5.5–6.0 · 新制 1–6 分制</div>
 </header>
 <main id="view"><div class="card">載入中…</div></main>
@@ -327,7 +327,7 @@ function todayMenu(){
   if(S.diagDone&&(!lastMock||Date.now()-lastMock.t>7*86400000))out.push({t:'📝 週模考（超過 7 天沒測了）',go:"go('mock')"});
   return out.slice(0,3);
 }
-function exportData(){try{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='toefl2026_progress.json';a.click();}catch(e){alert('匯出失敗：'+e.message);}}
+function exportData(){try{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='toefl_progress.json';a.click();}catch(e){alert('匯出失敗：'+e.message);}}
 function importData(){const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
   inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();
     rd.onload=()=>{try{const d=JSON.parse(rd.result);
